@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSocket - Conectividad Externa</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #dc3545;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border-color: #ffc107;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-color: #17a2b8;
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.success {
+            background-color: #28a745;
+        }
+        button.success:hover {
+            background-color: #218838;
+        }
+        button.danger {
+            background-color: #dc3545;
+        }
+        button.danger:hover {
+            background-color: #c82333;
+        }
+        #log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test WebSocket - Conectividad desde otra PC</h1>
+
+        <div class="error status">
+            <strong>⚠️ PROBLEMA DETECTADO:</strong><br>
+            El cliente está intentando conectarse a <code>localhost:3001</code> desde otra PC.<br>
+            <strong>localhost</strong> en otra PC se refiere a esa PC, no a tu servidor.<br>
+            <strong>Debes usar la IP del servidor: <code>192.168.1.23</code></strong>
+        </div>
+
+        <div class="input-group">
+            <label for="serverUrl">🌐 URL del servidor WebSocket:</label>
+            <input type="text" id="serverUrl" value="http://192.168.1.23:3001" placeholder="http://IP-DEL-SERVIDOR:PUERTO">
+            <small style="color: #666; margin-top: 5px; display: block;">
+                ✅ Correcto: http://192.168.1.23:3001 (IP del servidor)<br>
+                ❌ Incorrecto: http://localhost:3001 (solo funciona en la misma PC)
+            </small>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button onclick="testConnection()">🔌 Conectar WebSocket</button>
+            <button onclick="testHttp()">🌐 Test HTTP</button>
+            <button onclick="testFirewall()">🔥 Test Firewall</button>
+            <button onclick="clearLog()" class="danger">🗑️ Limpiar Log</button>
+        </div>
+
+        <div id="status" class="info status">
+            Estado: Listo para probar - Asegúrate de usar la IP del servidor (no localhost)
+        </div>
+
+        <div>
+            <h3>📊 Log de Conexión:</h3>
+            <div id="log"></div>
+        </div>
+
+        <div class="info status" style="margin-top: 20px;">
+            <h4>🔧 Pasos de Solución:</h4>
+            <ol>
+                <li><strong>Cambiar localhost por la IP del servidor:</strong> 192.168.1.23</li>
+                <li><strong>Abrir puerto en firewall del servidor:</strong> Puerto 3001</li>
+                <li><strong>Verificar conectividad:</strong> Usar este cliente de prueba</li>
+            </ol>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <script>
+        let socket = null;
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            logDiv.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = `Estado: ${message}`;
+            statusDiv.className = `${type} status`;
+        }
+
+        function testConnection() {
+            const url = document.getElementById('serverUrl').value.trim();
+
+            // Validar URL
+            if (url.includes('localhost')) {
+                log('❌ ERROR: Estás usando localhost desde otra PC!', 'error');
+                log('🔧 SOLUCIÓN: Cambia localhost por la IP del servidor: 192.168.1.23', 'warning');
+                updateStatus('Error: localhost no funciona desde otra PC', 'error');
+                return;
+            }
+
+            log(`🔌 Intentando conectar a: ${url}`, 'info');
+            updateStatus('Conectando...', 'warning');
+
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+
+            try {
+                socket = io(url, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 10000,
+                    forceNew: true,
+                    autoConnect: true
+                });
+
+                socket.on('connect', () => {
+                    log('✅ ¡Conexión WebSocket exitosa!', 'success');
+                    log(`✅ Conectado con ID: ${socket.id}`, 'success');
+                    updateStatus('Conectado exitosamente', 'success');
+
+                    // Enviar mensaje de prueba
+                    setTimeout(() => {
+                        log('🧪 Enviando mensaje de prueba...', 'info');
+                        socket.emit('test-message', {
+                            message: 'Hola desde cliente externo',
+                            timestamp: new Date().toISOString(),
+                            clientIP: 'externa'
+                        });
+                    }, 1000);
+                });
+
+                socket.on('disconnect', (reason) => {
+                    log(`❌ Desconectado: ${reason}`, 'error');
+                    updateStatus('Desconectado', 'error');
+                });
+
+                socket.on('connect_error', (error) => {
+                    log(`❌ Error de conexión: ${error.message}`, 'error');
+                    updateStatus('Error de conexión', 'error');
+
+                    // Diagnóstico específico
+                    if (error.message.includes('ECONNREFUSED')) {
+                        log('🔍 DIAGNÓSTICO: El servidor no responde en ese puerto', 'warning');
+                        log('   • ¿Está corriendo el servidor WebSocket?', 'warning');
+                        log('   • ¿Está bloqueado por firewall?', 'warning');
+                        log('   • ¿Es la IP correcta?', 'warning');
+                    } else if (error.message.includes('timeout')) {
+                        log('🔍 DIAGNÓSTICO: Timeout - posible firewall', 'warning');
+                        log('   • El servidor no respondió en 10 segundos', 'warning');
+                        log('   • Probablemente firewall bloqueando puerto 3001', 'warning');
+                    } else if (error.message.includes('network')) {
+                        log('🔍 DIAGNÓSTICO: Problema de red', 'warning');
+                        log('   • ¿Ambas PCs están en la misma red?', 'warning');
+                        log('   • ¿La IP es accesible?', 'warning');
+                    }
+                });
+
+                socket.on('test-response', (data) => {
+                    log(`✅ Respuesta del servidor: ${JSON.stringify(data)}`, 'success');
+                });
+
+                // Timeout manual adicional
+                setTimeout(() => {
+                    if (socket && !socket.connected) {
+                        log('⏰ Timeout: No se pudo conectar en 15 segundos', 'error');
+                        socket.disconnect();
+                    }
+                }, 15000);
+
+            } catch (error) {
+                log(`❌ Error al crear conexión: ${error.message}`, 'error');
+                updateStatus('Error', 'error');
+            }
+        }
+
+        async function testHttp() {
+            const url = document.getElementById('serverUrl').value.trim();
+
+            if (url.includes('localhost')) {
+                log('❌ ERROR: No uses localhost desde otra PC!', 'error');
+                return;
+            }
+
+            log(`🌐 Probando conectividad HTTP a: ${url}`, 'info');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    log('✅ Servidor HTTP responde correctamente', 'success');
+                    log(`   Status: ${response.status} ${response.statusText}`, 'success');
+                    log('✅ El puerto está abierto y accesible', 'success');
+                } else {
+                    log(`⚠️ Servidor responde con status: ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                log(`❌ Error HTTP: ${error.message}`, 'error');
+
+                if (error.name === 'AbortError') {
+                    log('🔍 DIAGNÓSTICO: Timeout - posible firewall', 'warning');
+                } else if (error.message.includes('Failed to fetch')) {
+                    log('🔍 DIAGNÓSTICO: No se puede alcanzar el servidor', 'warning');
+                    log('   • ¿Está corriendo el servidor?', 'warning');
+                    log('   • ¿Firewall bloquea el puerto 3001?', 'warning');
+                    log('   • ¿IP correcta? (usa 192.168.1.23)', 'warning');
+                }
+            }
+        }
+
+        async function testFirewall() {
+            const url = document.getElementById('serverUrl').value.trim();
+            const match = url.match(/http:\/\/([^:]+):(\d+)/);
+
+            if (!match) {
+                log('❌ URL inválida para test de firewall', 'error');
+                return;
+            }
+
+            const [, ip, port] = match;
+            log(`🔥 Probando conectividad al puerto ${port} en ${ip}...`, 'info');
+
+            try {
+                // Crear un WebSocket de prueba directa
+                const ws = new WebSocket(`ws://${ip}:${port}/socket.io/?EIO=4&transport=websocket`);
+
+                const timeout = setTimeout(() => {
+                    ws.close();
+                    log('⏰ Timeout: Firewall probablemente bloqueando puerto', 'error');
+                    log('🔧 SOLUCIÓN: Abrir puerto en firewall del servidor:', 'warning');
+                    log(`   netsh advfirewall firewall add rule name="WebSocket ${port}" dir=in action=allow protocol=TCP localport=${port}`, 'warning');
+                }, 5000);
+
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    log('✅ Puerto accesible - Firewall OK', 'success');
+                    ws.close();
+                };
+
+                ws.onerror = (error) => {
+                    clearTimeout(timeout);
+                    log('❌ Error de WebSocket - posible firewall', 'error');
+                };
+
+            } catch (error) {
+                log(`❌ Error en test de firewall: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            logDiv.textContent = '';
+        }
+
+        // Inicialización
+        log('🚀 Cliente de prueba WebSocket iniciado', 'info');
+        log('💡 IMPORTANTE: Cambia localhost por la IP del servidor (192.168.1.23)', 'warning');
+
+        // Auto-detectar si se está usando localhost
+        const urlInput = document.getElementById('serverUrl');
+        urlInput.addEventListener('input', (e) => {
+            if (e.target.value.includes('localhost')) {
+                updateStatus('⚠️ localhost no funciona desde otra PC - usa la IP del servidor', 'warning');
+            } else {
+                updateStatus('Listo para probar', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
+

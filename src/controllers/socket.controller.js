@@ -1,6 +1,7 @@
 import authService from '../services/auth.service.js';
 import socketRepository from '../repositories/socket.repository.js';
 import activeUsersRepository from '../repositories/activeUsers.repository.js';
+import shipmentService from '../services/shipment.service.js';
 
 class SocketController {
     // Obtener IP real del cliente
@@ -69,6 +70,53 @@ class SocketController {
         // Evento de actualización de ubicación
         socket.on('location_update', (data) => {
             this.handleLocationUpdate(socket, data);
+        });
+
+        // ========== EVENTOS DE ENVÍO Y LOGÍSTICA ==========
+
+        // Evento de programación de envío
+        socket.on('shipment_scheduled', (data) => {
+            this.handleShipmentScheduled(socket, data);
+        });
+
+        // Evento de inicio de preparación
+        socket.on('shipment_preparation_started', (data) => {
+            this.handleShipmentPreparationStarted(socket, data);
+        });
+
+        // Evento de salida del almacén
+        socket.on('shipment_departed', (data) => {
+            this.handleShipmentDeparted(socket, data);
+        });
+
+        // Evento de actualización de ubicación de chofer
+        socket.on('driver_location_update', (data) => {
+            this.handleDriverLocationUpdate(socket, data);
+        });
+
+        // Evento de llegada cercana
+        socket.on('shipment_arriving_soon', (data) => {
+            this.handleShipmentArrivingSoon(socket, data);
+        });
+
+        // Evento de entrega completada
+        socket.on('shipment_delivered', (data) => {
+            this.handleShipmentDelivered(socket, data);
+        });
+
+        // Evento de entrega fallida
+        socket.on('shipment_delivery_failed', (data) => {
+            this.handleShipmentDeliveryFailed(socket, data);
+        });
+
+        // Evento de cambio de estado de vehículo
+        socket.on('vehicle_status_changed', (data) => {
+            this.handleVehicleStatusChanged(socket, data);
+        });
+
+        // Evento de evento de ruta
+        socket.on('route_event', (data) => {
+            this.handleRouteEvent(socket, data);
         });
 
         // Evento de desconexión
@@ -228,6 +276,225 @@ class SocketController {
         if (userData) {
             socketRepository.broadcast(socket, 'user_disconnected', userData);
         }
+    }
+
+    // ========================================
+    // MANEJADORES DE ENVÍO Y LOGÍSTICA
+    // ========================================
+
+    // Manejar programación de envío
+    handleShipmentScheduled(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`📦 Programación de envío: ${data.numero_envio}`);
+
+        // Llamar al servicio para enviar notificaciones
+        shipmentService.notifyShipmentScheduled(data);
+
+        // Confirmar al emisor
+        socket.emit('shipment_scheduled_confirmed', {
+            success: true,
+            shipment_id: data.id,
+            numero_envio: data.numero_envio,
+            message: 'Envío programado correctamente',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
+
+    // Manejar inicio de preparación
+    handleShipmentPreparationStarted(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`🔄 Preparación iniciada: ${data.numero_envio}`);
+
+        shipmentService.notifyShipmentPreparationStarted(data);
+
+        socket.emit('shipment_preparation_started_confirmed', {
+            success: true,
+            shipment_id: data.id,
+            numero_envio: data.numero_envio,
+            message: 'Preparación iniciada correctamente',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
+
+    // Manejar salida del almacén
+    handleShipmentDeparted(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`🚛 Salida del almacén: ${data.numero_envio}`);
+
+        shipmentService.notifyShipmentDeparted(data);
+
+        socket.emit('shipment_departed_confirmed', {
+            success: true,
+            shipment_id: data.id,
+            numero_envio: data.numero_envio,
+            message: 'Salida del almacén confirmada',
+            timestamp: new Date().toISOString()
+        });
+
+        // Unir al chofer a una sala de seguimiento
+        if (data.chofer?.id) {
+            socketRepository.joinRoom(socket, `shipment_${data.id}`);
+            socketRepository.joinRoom(socket, `driver_${data.chofer.id}`);
+        }
+
+        return true;
+    }
+
+    // Manejar actualización de ubicación del chofer
+    handleDriverLocationUpdate(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        // Solo chofers pueden actualizar su ubicación
+        if (user && user.userType === 'chofer') {
+            const {
+                shipment_id,
+                numero_envio,
+                cliente_id,
+                latitude,
+                longitude,
+                precisión,
+                velocidad,
+                dirección
+            } = data;
+
+            console.log(`📍 Ubicación actualizada: Chofer ${user.userName} - Lat: ${latitude}, Lng: ${longitude}`);
+
+            // Actualizar ubicación
+            shipmentService.updateDriverLocation({
+                shipment_id: shipment_id,
+                chofer_id: user.userId,
+                numero_envio: numero_envio,
+                cliente_id: cliente_id,
+                latitude: latitude,
+                longitude: longitude,
+                precisión: precisión,
+                velocidad: velocidad,
+                dirección: dirección,
+                timestamp: new Date().toISOString()
+            });
+
+            // Enviar confirmación al chofer
+            socket.emit('location_update_received', {
+                success: true,
+                message: 'Ubicación actualizada',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            socket.emit('location_update_error', {
+                success: false,
+                message: 'Solo los choferes pueden actualizar su ubicación',
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        return true;
+    }
+
+    // Manejar llegada cercana
+    handleShipmentArrivingSoon(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`📍 Llegada cercana: ${data.numero_envio}`);
+
+        shipmentService.notifyShipmentArriving(data);
+
+        socket.emit('shipment_arriving_soon_confirmed', {
+            success: true,
+            message: 'Notificación de llegada enviada',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
+
+    // Manejar entrega completada
+    handleShipmentDelivered(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`✅ Entrega completada: ${data.numero_envio}`);
+
+        shipmentService.notifyShipmentDelivered(data);
+
+        socket.emit('shipment_delivered_confirmed', {
+            success: true,
+            shipment_id: data.id,
+            numero_envio: data.numero_envio,
+            message: 'Entrega confirmada correctamente',
+            timestamp: new Date().toISOString()
+        });
+
+        // Salir de las salas de seguimiento
+        if (data.id) {
+            socketRepository.leaveRoom(socket, `shipment_${data.id}`);
+        }
+        if (user?.userId) {
+            socketRepository.leaveRoom(socket, `driver_${user.userId}`);
+        }
+
+        return true;
+    }
+
+    // Manejar entrega fallida
+    handleShipmentDeliveryFailed(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`❌ Entrega fallida: ${data.numero_envio} - Motivo: ${data.motivo_rechazo}`);
+
+        shipmentService.notifyShipmentDeliveryFailed(data);
+
+        socket.emit('shipment_delivery_failed_confirmed', {
+            success: true,
+            shipment_id: data.id,
+            numero_envio: data.numero_envio,
+            message: 'Fallo de entrega registrado',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
+
+    // Manejar cambio de estado de vehículo
+    handleVehicleStatusChanged(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`🚗 Estado de vehículo actualizado: ${data.placa} → ${data.estado_nuevo}`);
+
+        shipmentService.notifyVehicleStatusChanged(data);
+
+        socket.emit('vehicle_status_changed_confirmed', {
+            success: true,
+            vehiculo_id: data.vehiculo_id,
+            placa: data.placa,
+            estado_nuevo: data.estado_nuevo,
+            message: 'Estado del vehículo actualizado',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
+
+    // Manejar evento de ruta
+    handleRouteEvent(socket, data) {
+        const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+        console.log(`🛣️ Evento de ruta: ${data.tipo_evento} - ${data.numero_envio}`);
+
+        shipmentService.notifyRouteEvent(data);
+
+        socket.emit('route_event_received', {
+            success: true,
+            message: 'Evento de ruta registrado',
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
     }
 }
 

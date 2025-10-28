@@ -2,6 +2,7 @@ import notificationRoutes from './notification.routes.js';
 import healthRoutes from './health.routes.js';
 import usersRoutes from './users.routes.js';
 import proformaRoutes from './proforma.routes.js';
+import shipmentRoutes from './shipment.routes.js';
 
 export const setupRoutes = (app) => {
     // Rutas de salud y estáticas
@@ -15,4 +16,7 @@ export const setupRoutes = (app) => {
 
     // Rutas de usuarios conectados
     app.use('/api/users', usersRoutes);
+
+    // Rutas de tracking y logística en tiempo real
+    app.use('/api', shipmentRoutes);
 };

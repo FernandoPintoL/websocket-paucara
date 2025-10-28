@@ -5,10 +5,11 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import process from 'process';
 
 // Importar configuraciones
 import { expressCorOptions, socketCorsOptions } from './src/config/cors.config.js';
-import { socketConfig, getPort } from './src/config/socket.config.js';
+import { socketConfig, getPort, getHost, getWebsocketUrl, validateProductionConfig } from './src/config/socket.config.js';
 
 // Importar rutas
 import { setupRoutes } from './src/routes/index.js';
@@ -24,6 +25,16 @@ import { getLocalIP } from './src/utils/network-utils.js';
 
 // Cargar variables de entorno
 dotenv.config();
+
+// Validar configuración para producción
+const configErrors = validateProductionConfig();
+if (configErrors.length > 0) {
+    console.error('❌ Errores de configuración:');
+    configErrors.forEach(error => console.error(`   - ${error}`));
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
+}
 
 // Define __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -59,28 +70,37 @@ io.on('connection', (socket) => {
 
 // Iniciar el servidor
 const PORT = getPort();
-server.listen(PORT, '0.0.0.0', () => {
+const HOST = getHost();
+const WEBSOCKET_URL = getWebsocketUrl();
+
+server.listen(PORT, HOST, () => {
     const localIP = getLocalIP();
     console.log(`\n🚀 Servidor WebSocket corriendo en puerto ${PORT}`);
     console.log(`\n🌐 Entorno: ${process.env.NODE_ENV}`);
-    console.log(`\n📡 Escuchando en todas las interfaces (0.0.0.0:${PORT})`);
+    console.log(`\n📡 Escuchando en: ${HOST}:${PORT}`);
+    console.log(`\n🔗 URL del WebSocket: ${WEBSOCKET_URL}`);
 
     console.log(`\n🌐 Servidor accesible en:`);
     console.log(`   Local: http://localhost:${PORT}`);
     console.log(`   Red local: http://${localIP}:${PORT}`);
+    
+    if (process.env.PREFERRED_IP) {
+        console.log(`   IP Preferida: http://${process.env.PREFERRED_IP}:${PORT}`);
+    }
 
     if (process.env.NODE_ENV === 'development') {
         console.log(`\n🔧 Configuración de desarrollo:`);
         console.log(`   CORS: Permitiendo cualquier origen (*)`);
         console.log(`   Cliente configurado: ${process.env.CLIENT_URL || 'No configurado'}`);
+        console.log(`   Host configurado: ${HOST}`);
         console.log(`\n⚠️  DIAGNÓSTICO DE CONECTIVIDAD:`);
         console.log(`   Si no puedes acceder desde otra PC, verifica:`);
         console.log(`   1. Firewall de Windows - Puerto ${PORT} debe estar abierto`);
         console.log(`   2. Red local - Ambas PCs en la misma red`);
-        console.log(`   3. IP correcta - Usar ${localIP}:${PORT}`);
+        console.log(`   3. IP correcta - Usar la configurada en PREFERRED_IP o ${localIP}:${PORT}`);
         console.log(`\n🧪 Prueba de conectividad desde otra PC:`);
-        console.log(`   Navegador: http://${localIP}:${PORT}`);
-        console.log(`   Telnet: telnet ${localIP} ${PORT}`);
+        console.log(`   Navegador: ${WEBSOCKET_URL}`);
+        console.log(`   Telnet: telnet ${process.env.PREFERRED_IP || localIP} ${PORT}`);
     }
 });
 
@@ -133,7 +153,7 @@ process.on('uncaughtException', (error) => {
     gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
     console.error('❌ Promesa rechazada no manejada:', reason);
     gracefulShutdown('UNHANDLED_REJECTION');
 });

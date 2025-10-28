@@ -1,9 +1,15 @@
 import os from 'os';
+import process from 'process';
 
 /**
- * Detectar IP local automáticamente
+ * Detectar IP local automáticamente, respetando la IP preferida del .env
  */
 export function getLocalIP() {
+    // Si hay una IP preferida configurada, usarla
+    if (process.env.PREFERRED_IP) {
+        return process.env.PREFERRED_IP;
+    }
+
     const interfaces = os.networkInterfaces();
 
     for (const name of Object.keys(interfaces)) {

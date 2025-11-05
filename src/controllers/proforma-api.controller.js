@@ -17,6 +17,24 @@ class ProformaApiController {
         try {
             const proformaData = req.body;
 
+            // 📋 Log detallado de lo que llega desde Laravel
+            console.log('\n');
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📬 NUEVA NOTIFICACIÓN RECIBIDA DESDE LARAVEL');
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📋 Datos completos:', JSON.stringify(proformaData, null, 2));
+            console.log('┌─ RESUMEN DE DATOS:');
+            console.log(`│  📦 ID Proforma: ${proformaData.id}`);
+            console.log(`│  📝 Número: ${proformaData.numero}`);
+            console.log(`│  👤 Cliente ID: ${proformaData.cliente_id}`);
+            console.log(`│  👤 Cliente: ${proformaData.cliente?.nombre} ${proformaData.cliente?.apellido}`);
+            console.log(`│  💰 Total: ${proformaData.total}`);
+            console.log(`│  📅 Fecha Creación: ${proformaData.fecha_creacion}`);
+            console.log(`│  📅 Fecha Vencimiento: ${proformaData.fecha_vencimiento || 'No definida'}`);
+            console.log(`│  🛒 Items: ${proformaData.items?.length || 0}`);
+            console.log('└─────────────────────────────────────────────────────────');
+            console.log('═══════════════════════════════════════════════════════════\n');
+
             // Validación básica
             if (!proformaData.id || !proformaData.cliente_id) {
                 return res.status(400).json({

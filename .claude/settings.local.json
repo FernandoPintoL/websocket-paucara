@@ -2,7 +2,26 @@
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
-      "Bash(node server.js)"
+      "Bash(node server.js)",
+      "Bash(dir:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout 15 node:*)",
+      "Bash(node test-db-connection.js:*)",
+      "Bash(timeout 20 node:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(Get-Process -Id 16508)",
+      "Bash(Stop-Process -Force)",
+      "Bash(kill:*)",
+      "Bash(pgrep:*)",
+      "Bash(xargs kill -9)",
+      "Bash(find:*)",
+      "Bash(tree /F /L 3 D:paucaradistribuidora-paucararesourcesjs 2)",
+      "Bash(nul)",
+      "Bash(ls -la \"D:\\paucara\\distribuidora-paucara\\websocket\"\" | grep -E \".ts$)",
+      "Bash(.js$)",
+      "Bash(package \")"
     ],
     "deny": [],
     "ask": []

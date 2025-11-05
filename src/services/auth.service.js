@@ -1,5 +1,6 @@
 import activeUsersRepository from '../repositories/activeUsers.repository.js';
 import socketRepository from '../repositories/socket.repository.js';
+import sanctumAuthMiddleware from '../middleware/sanctum-auth.middleware.js';
 
 class AuthService {
     // Obtener IP del cliente
@@ -16,60 +17,95 @@ class AuthService {
     }
 
     // Autenticar usuario y unirlo a salas correspondientes
-    authenticateUser(socket, userData) {
-        const { userId, userType, userName } = userData;
+    async authenticateUser(socket, userData) {
+        try {
+            // PASO 1: Validar token Sanctum o datos legacy
+            const validationResult = await sanctumAuthMiddleware.verifyToken(socket, userData);
 
-        if (!userId) {
+            if (!validationResult.success) {
+                return {
+                    success: false,
+                    message: validationResult.message,
+                    code: validationResult.code || 'AUTH_FAILED'
+                };
+            }
+
+            // PASO 2: Extraer datos validados
+            const {
+                userId,
+                userName,
+                userType,
+                userEmail,
+                roles,
+                tokenValidated,
+                source
+            } = validationResult;
+
+            // Normalizar userId a string
+            const normalizedUserId = String(userId);
+
+            // Obtener IP del cliente
+            const clientIP = this.getClientIP(socket);
+
+            // PASO 3: Almacenar información del usuario
+            activeUsersRepository.addUser(socket.id, {
+                userId: normalizedUserId,
+                userType,
+                userName,
+                userEmail,
+                roles,
+                clientIP,
+                tokenValidated,
+                source,
+                connectedAt: new Date().toISOString()
+            });
+
+            // PASO 4: Unir al usuario a salas según su tipo
+            this.joinUserToRooms(socket, userType);
+
+            // PASO 5: Unir a sala personal
+            socketRepository.joinRoom(socket, `user_${normalizedUserId}`);
+
+            // PASO 6: Log de autenticación
+            const authMethod = tokenValidated ? 'Token Sanctum' : 'Legacy';
+            console.log(`\n✅ Usuario autenticado (${authMethod}):`);
+            console.log(`   Nombre: ${userName}`);
+            console.log(`   Email: ${userEmail || 'N/A'}`);
+            console.log(`   Tipo: ${userType}`);
+            console.log(`   Roles: ${roles?.join(', ') || 'N/A'}`);
+            console.log(`   ID Usuario: ${normalizedUserId}`);
+            console.log(`   IP: ${clientIP}`);
+            console.log(`   Socket ID: ${socket.id}`);
+
+            // PASO 7: Notificar a otros usuarios sobre la conexión
+            socketRepository.broadcast(socket, 'user_connected', {
+                userId: normalizedUserId,
+                userName,
+                userType,
+                clientIP,
+                connectedAt: new Date().toISOString()
+            });
+
+            return {
+                success: true,
+                message: 'Autenticación exitosa',
+                userId: normalizedUserId,
+                userName,
+                userType,
+                userEmail,
+                roles,
+                clientIP,
+                tokenValidated,
+                authMethod
+            };
+        } catch (error) {
+            console.error('Error en autenticación:', error);
             return {
                 success: false,
-                message: 'Datos de autenticación inválidos'
+                message: 'Error en autenticación del usuario',
+                code: 'AUTH_ERROR'
             };
         }
-
-        // Normalizar userId a string para consistencia
-        const normalizedUserId = String(userId);
-
-        // Obtener IP del cliente
-        const clientIP = this.getClientIP(socket);
-
-        // Almacenar información del usuario
-        activeUsersRepository.addUser(socket.id, {
-            userId: normalizedUserId,
-            userType,
-            userName,
-            clientIP,
-            connectedAt: new Date().toISOString()
-        });
-
-        // Unir al usuario a salas según su tipo
-        this.joinUserToRooms(socket, userType);
-
-        // Unir a sala personal
-        socketRepository.joinRoom(socket, `user_${normalizedUserId}`);
-
-        console.log(`\n✅ Usuario autenticado:`);
-        console.log(`   Nombre: ${userName}`);
-        console.log(`   Tipo: ${userType}`);
-        console.log(`   ID Usuario: ${normalizedUserId} (tipo: ${typeof normalizedUserId})`);
-        console.log(`   IP: ${clientIP}`);
-        console.log(`   Socket ID: ${socket.id}`);
-
-        // Notificar a otros usuarios sobre la conexión
-        socketRepository.broadcast(socket, 'user_connected', {
-            userId: normalizedUserId,
-            userName,
-            userType,
-            clientIP,
-            connectedAt: new Date().toISOString()
-        });
-
-        return {
-            success: true,
-            message: 'Autenticación exitosa',
-            userId: normalizedUserId,
-            userType,
-            clientIP
-        };
     }
 
     // Unir usuario a salas según su tipo

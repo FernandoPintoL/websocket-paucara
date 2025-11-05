@@ -32,8 +32,8 @@ class SocketController {
         console.log(`   User-Agent: ${socket.handshake.headers['user-agent'] || 'N/A'}`);
 
         // Evento de autenticación del usuario
-        socket.on('authenticate', (data) => {
-            const result = authService.authenticateUser(socket, data);
+        socket.on('authenticate', async (data) => {
+            const result = await authService.authenticateUser(socket, data);
 
             if (result.success) {
                 socket.emit('authenticated', result);

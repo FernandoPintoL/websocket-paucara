@@ -10,39 +10,105 @@ class ProformaService {
      * Notificar creación de proforma
      */
     notifyProformaCreated(proformaData) {
-        const { id, numero, cliente_id, cliente, total, items, fecha_creacion, fecha_vencimiento } = proformaData;
+        // Destructuring con valores por defecto para evitar undefined
+        const {
+            id,
+            numero,
+            cliente_id,
+            cliente = {},
+            total,
+            items = [],
+            fecha_creacion,
+            fecha_vencimiento,
+            estado = 'PENDIENTE',
+            canal_origen = 'web'
+        } = proformaData;
 
-        console.log(`📦 Nueva proforma creada: ${numero} - Cliente ${cliente_id}`);
+        console.log(`\n📦 Nova proforma creada: ${numero} - Cliente ${cliente_id}`);
+        console.log(`   ├─ ID: ${id}`);
+        console.log(`   ├─ Cliente: ${cliente?.nombre || 'Sin nombre'} ${cliente?.apellido || ''}`);
+        console.log(`   ├─ Total: ${total}`);
+        console.log(`   ├─ Items: ${items.length}`);
+        console.log(`   ├─ Estado: ${estado}`);
+        console.log(`   ├─ Fecha Creación: ${fecha_creacion}`);
+        console.log(`   └─ Fecha Vencimiento: ${fecha_vencimiento || 'Sin vencimiento'}\n`);
 
         // 1. Notificar al cliente que creó la proforma
+        console.log(`📱 Enviando a cliente ${cliente_id}...`);
         socketRepository.emitToUser(cliente_id, 'proforma_created_confirmation', {
             proforma_id: id,
             numero: numero,
-            total: total,
+            total: total || 0,
             items_count: items?.length || 0,
+            items: items || [],
             fecha_creacion: fecha_creacion,
-            fecha_vencimiento: fecha_vencimiento,
+            fecha_vencimiento: fecha_vencimiento || null,
+            estado: estado,
             message: '✅ Tu pedido ha sido recibido y está en revisión',
             type: 'success',
             timestamp: new Date().toISOString()
         });
 
         // 2. Notificar a todo el staff/managers sobre nueva proforma pendiente
+        console.log(`👥 Enviando a managers...`);
         socketRepository.emitToRoom('managers', 'new_proforma_pending', {
             proforma_id: id,
             numero: numero,
-            cliente: cliente,
+            cliente: cliente || {},
             cliente_id: cliente_id,
-            total: total,
+            total: total || 0,
             items_count: items?.length || 0,
-            items: items,
+            items: items || [],
             fecha_creacion: fecha_creacion,
-            message: `Nueva proforma ${numero} pendiente de aprobación`,
+            fecha_vencimiento: fecha_vencimiento || null,
+            canal_origen: canal_origen,
+            estado: estado,
+            message: `Nueva proforma ${numero} pendiente de aprobación - Cliente: ${cliente?.nombre} ${cliente?.apellido}`,
             type: 'info',
             timestamp: new Date().toISOString()
         });
 
-        console.log(`✅ Notificaciones enviadas: cliente ${cliente_id} + managers`);
+        // 3. Notificar a otros roles
+        console.log(`📣 Enviando a preventistas, cajeros y admins...`);
+        socketRepository.emitToRoom('preventistas', 'new_proforma_pending', {
+            proforma_id: id,
+            numero: numero,
+            cliente: cliente || {},
+            cliente_id: cliente_id,
+            total: total || 0,
+            items_count: items?.length || 0,
+            items: items || [],
+            message: `Nueva proforma ${numero}`,
+            type: 'info',
+            timestamp: new Date().toISOString()
+        });
+
+        socketRepository.emitToRoom('cajeros', 'new_proforma_pending', {
+            proforma_id: id,
+            numero: numero,
+            cliente: cliente || {},
+            cliente_id: cliente_id,
+            total: total || 0,
+            items_count: items?.length || 0,
+            message: `Nueva proforma ${numero}`,
+            type: 'info',
+            timestamp: new Date().toISOString()
+        });
+
+        socketRepository.emitToRoom('admins', 'new_proforma_pending', {
+            proforma_id: id,
+            numero: numero,
+            cliente: cliente || {},
+            cliente_id: cliente_id,
+            total: total || 0,
+            items_count: items?.length || 0,
+            items: items || [],
+            message: `Nueva proforma ${numero}`,
+            type: 'info',
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`✅ Notificaciones enviadas: cliente ${cliente_id} + managers + preventistas + cajeros + admins\n`);
         return true;
     }
 

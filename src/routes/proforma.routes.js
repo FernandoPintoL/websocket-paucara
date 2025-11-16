@@ -1,5 +1,6 @@
 import express from 'express';
 import proformaApiController from '../controllers/proforma-api.controller.js';
+import { ensureBackend } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -8,10 +9,10 @@ const router = express.Router();
 // ========================================
 
 // Llamadas desde Laravel cuando ocurren eventos de proformas
-router.post('/notify/proforma-created', (req, res) => proformaApiController.notifyCreated(req, res));
-router.post('/notify/proforma-approved', (req, res) => proformaApiController.notifyApproved(req, res));
-router.post('/notify/proforma-rejected', (req, res) => proformaApiController.notifyRejected(req, res));
-router.post('/notify/proforma-converted', (req, res) => proformaApiController.notifyConverted(req, res));
+router.post('/notify/proforma-created', ensureBackend, (req, res) => proformaApiController.notifyCreated(req, res));
+router.post('/notify/proforma-approved', ensureBackend, (req, res) => proformaApiController.notifyApproved(req, res));
+router.post('/notify/proforma-rejected', ensureBackend, (req, res) => proformaApiController.notifyRejected(req, res));
+router.post('/notify/proforma-converted', ensureBackend, (req, res) => proformaApiController.notifyConverted(req, res));
 
 // ========================================
 // RUTAS DE NOTIFICACIONES DE STOCK

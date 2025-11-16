@@ -48,10 +48,10 @@ class ProformaService {
             type: 'success',
             timestamp: new Date().toISOString()
         });
-
         // 2. Notificar a todo el staff/managers sobre nueva proforma pendiente
         console.log(`👥 Enviando a managers...`);
-        socketRepository.emitToRoom('managers', 'new_proforma_pending', {
+        socketRepository.emitToRoom('managers', 'proforma.creada', {
+            id: id,
             proforma_id: id,
             numero: numero,
             cliente: cliente || {},
@@ -67,10 +67,10 @@ class ProformaService {
             type: 'info',
             timestamp: new Date().toISOString()
         });
-
         // 3. Notificar a otros roles
         console.log(`📣 Enviando a preventistas, cajeros y admins...`);
-        socketRepository.emitToRoom('preventistas', 'new_proforma_pending', {
+        socketRepository.emitToRoom('preventistas', 'proforma.creada', {
+            id: id,
             proforma_id: id,
             numero: numero,
             cliente: cliente || {},
@@ -78,24 +78,28 @@ class ProformaService {
             total: total || 0,
             items_count: items?.length || 0,
             items: items || [],
+            fecha_creacion: fecha_creacion,
             message: `Nueva proforma ${numero}`,
             type: 'info',
             timestamp: new Date().toISOString()
         });
 
-        socketRepository.emitToRoom('cajeros', 'new_proforma_pending', {
+        socketRepository.emitToRoom('cajeros', 'proforma.creada', {
+            id: id,
             proforma_id: id,
             numero: numero,
             cliente: cliente || {},
             cliente_id: cliente_id,
             total: total || 0,
             items_count: items?.length || 0,
+            fecha_creacion: fecha_creacion,
             message: `Nueva proforma ${numero}`,
             type: 'info',
             timestamp: new Date().toISOString()
         });
 
-        socketRepository.emitToRoom('admins', 'new_proforma_pending', {
+        socketRepository.emitToRoom('admins', 'proforma.creada', {
+            id: id,
             proforma_id: id,
             numero: numero,
             cliente: cliente || {},
@@ -103,6 +107,7 @@ class ProformaService {
             total: total || 0,
             items_count: items?.length || 0,
             items: items || [],
+            fecha_creacion: fecha_creacion,
             message: `Nueva proforma ${numero}`,
             type: 'info',
             timestamp: new Date().toISOString()
@@ -121,7 +126,7 @@ class ProformaService {
         console.log(`✅ Proforma APROBADA: ${numero} por ${usuario_aprobador?.name}`);
 
         // 1. Notificar al cliente
-        socketRepository.emitToUser(cliente_id, 'proforma_approved', {
+        socketRepository.emitToUser(cliente_id, 'proforma.aprobada', {
             proforma_id: id,
             numero: numero,
             total: total,
@@ -135,7 +140,7 @@ class ProformaService {
         });
 
         // 2. Notificar a managers (para tracking)
-        socketRepository.emitToRoom('managers', 'proforma_approval_completed', {
+        socketRepository.emitToRoom('managers', 'proforma.aprobada', {
             proforma_id: id,
             numero: numero,
             cliente_id: cliente_id,
@@ -157,7 +162,7 @@ class ProformaService {
         console.log(`❌ Proforma RECHAZADA: ${numero} - Motivo: ${motivo_rechazo}`);
 
         // 1. Notificar al cliente
-        socketRepository.emitToUser(cliente_id, 'proforma_rejected', {
+        socketRepository.emitToUser(cliente_id, 'proforma.rechazada', {
             proforma_id: id,
             numero: numero,
             rejected_by: usuario_rechazador?.name,
@@ -170,7 +175,7 @@ class ProformaService {
         });
 
         // 2. Notificar a managers
-        socketRepository.emitToRoom('managers', 'proforma_rejection_completed', {
+        socketRepository.emitToRoom('managers', 'proforma.rechazada', {
             proforma_id: id,
             numero: numero,
             cliente_id: cliente_id,
@@ -192,7 +197,7 @@ class ProformaService {
         console.log(`🔄 Proforma ${proforma_numero} convertida a venta ${venta_numero}`);
 
         // Notificar al cliente
-        socketRepository.emitToUser(cliente_id, 'proforma_converted_to_sale', {
+        socketRepository.emitToUser(cliente_id, 'proforma.convertida', {
             proforma_id: proforma_id,
             proforma_numero: proforma_numero,
             venta_id: venta_id,

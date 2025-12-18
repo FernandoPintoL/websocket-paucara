@@ -158,6 +158,51 @@ class ProformaApiController {
         }
     }
 
+    /**
+     * POST /notify/proforma-coordination
+     * Notificar actualización de coordinación de entrega
+     */
+    notifyCoordination(req, res) {
+        try {
+            const coordinationData = req.body;
+
+            console.log('\n');
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📍 COORDINACIÓN DE PROFORMA ACTUALIZADA');
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('📦 ID Proforma:', coordinationData.id);
+            console.log('📝 Número:', coordinationData.numero);
+            console.log('👤 Usuario que actualiza:', coordinationData.usuario_actualizo?.name);
+            console.log('📞 Intentos de contacto:', coordinationData.numero_intentos_contacto);
+            console.log('📋 Resultado:', coordinationData.resultado_ultimo_intento);
+            console.log('📅 Entregado en:', coordinationData.entregado_en);
+            console.log('👥 Entregado a:', coordinationData.entregado_a);
+            console.log('═══════════════════════════════════════════════════════════\n');
+
+            if (!coordinationData.id || !coordinationData.cliente_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Datos inválidos'
+                });
+            }
+
+            const result = proformaService.notifyProformaCoordination(coordinationData);
+
+            return res.json({
+                success: result,
+                message: 'Notificación de coordinación enviada',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('Error en notifyCoordination:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Error al procesar notificación',
+                error: error.message
+            });
+        }
+    }
+
     // ========================================
     // ENDPOINTS DE STOCK
     // ========================================

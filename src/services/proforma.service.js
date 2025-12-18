@@ -212,6 +212,111 @@ class ProformaService {
         return true;
     }
 
+    /**
+     * Notificar actualización de coordinación de entrega
+     */
+    notifyProformaCoordination(coordinationData) {
+        const {
+            id,
+            numero,
+            cliente_id,
+            usuario_actualizo,
+            numero_intentos_contacto,
+            resultado_ultimo_intento,
+            fecha_entrega_confirmada,
+            hora_entrega_confirmada,
+            entregado_en,
+            entregado_a,
+            observaciones_entrega,
+            coordinacion_actualizada_en
+        } = coordinationData;
+
+        console.log(`\n📍 Coordinación de Proforma Actualizada: ${numero}`);
+        console.log(`   ├─ ID: ${id}`);
+        console.log(`   ├─ Usuario: ${usuario_actualizo?.name}`);
+        console.log(`   ├─ Intentos: ${numero_intentos_contacto}`);
+        console.log(`   ├─ Resultado: ${resultado_ultimo_intento}`);
+        console.log(`   ├─ Fecha confirmada: ${fecha_entrega_confirmada}`);
+        console.log(`   ├─ Hora confirmada: ${hora_entrega_confirmada}`);
+        console.log(`   ├─ Entregado en: ${entregado_en}`);
+        console.log(`   ├─ Entregado a: ${entregado_a}`);
+        console.log(`   └─ Observaciones: ${observaciones_entrega || 'Sin observaciones'}\n`);
+
+        // 1. Notificar al cliente
+        if (cliente_id) {
+            socketRepository.emitToUser(cliente_id, 'proforma.coordinacion.actualizada', {
+                proforma_id: id,
+                numero: numero,
+                numero_intentos_contacto: numero_intentos_contacto || 0,
+                resultado_ultimo_intento: resultado_ultimo_intento,
+                fecha_entrega_confirmada: fecha_entrega_confirmada,
+                hora_entrega_confirmada: hora_entrega_confirmada,
+                entregado_en: entregado_en,
+                entregado_a: entregado_a,
+                observaciones_entrega: observaciones_entrega,
+                message: entregado_en
+                    ? `✅ Tu pedido fue entregado a ${entregado_a}`
+                    : `📍 Se ha actualizado la coordinación de tu entrega`,
+                type: entregado_en ? 'success' : 'info',
+                action_required: false,
+                timestamp: new Date().toISOString()
+            });
+            console.log(`📱 Notificación enviada a cliente ${cliente_id}`);
+        }
+
+        // 2. Notificar a preventistas
+        socketRepository.emitToRoom('preventistas', 'proforma.coordinacion.actualizada', {
+            proforma_id: id,
+            numero: numero,
+            cliente_id: cliente_id,
+            usuario_actualizo: usuario_actualizo,
+            numero_intentos_contacto: numero_intentos_contacto || 0,
+            resultado_ultimo_intento: resultado_ultimo_intento,
+            fecha_entrega_confirmada: fecha_entrega_confirmada,
+            hora_entrega_confirmada: hora_entrega_confirmada,
+            entregado_en: entregado_en,
+            entregado_a: entregado_a,
+            coordinacion_actualizada_en: coordinacion_actualizada_en,
+            timestamp: new Date().toISOString()
+        });
+
+        // 3. Notificar a managers
+        socketRepository.emitToRoom('managers', 'proforma.coordinacion.actualizada', {
+            proforma_id: id,
+            numero: numero,
+            cliente_id: cliente_id,
+            usuario_actualizo: usuario_actualizo,
+            numero_intentos_contacto: numero_intentos_contacto || 0,
+            resultado_ultimo_intento: resultado_ultimo_intento,
+            fecha_entrega_confirmada: fecha_entrega_confirmada,
+            hora_entrega_confirmada: hora_entrega_confirmada,
+            entregado_en: entregado_en,
+            entregado_a: entregado_a,
+            coordinacion_actualizada_en: coordinacion_actualizada_en,
+            timestamp: new Date().toISOString()
+        });
+
+        // 4. Notificar a admins
+        socketRepository.emitToRoom('admins', 'proforma.coordinacion.actualizada', {
+            proforma_id: id,
+            numero: numero,
+            cliente_id: cliente_id,
+            usuario_actualizo: usuario_actualizo,
+            numero_intentos_contacto: numero_intentos_contacto || 0,
+            resultado_ultimo_intento: resultado_ultimo_intento,
+            fecha_entrega_confirmada: fecha_entrega_confirmada,
+            hora_entrega_confirmada: hora_entrega_confirmada,
+            entregado_en: entregado_en,
+            entregado_a: entregado_a,
+            observaciones_entrega: observaciones_entrega,
+            coordinacion_actualizada_en: coordinacion_actualizada_en,
+            timestamp: new Date().toISOString()
+        });
+
+        console.log(`✅ Notificaciones enviadas: cliente ${cliente_id} + preventistas + managers + admins\n`);
+        return true;
+    }
+
     // ========================================
     // NOTIFICACIONES DE STOCK
     // ========================================

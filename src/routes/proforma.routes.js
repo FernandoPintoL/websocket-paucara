@@ -13,6 +13,7 @@ router.post('/notify/proforma-created', ensureBackend, (req, res) => proformaApi
 router.post('/notify/proforma-approved', ensureBackend, (req, res) => proformaApiController.notifyApproved(req, res));
 router.post('/notify/proforma-rejected', ensureBackend, (req, res) => proformaApiController.notifyRejected(req, res));
 router.post('/notify/proforma-converted', ensureBackend, (req, res) => proformaApiController.notifyConverted(req, res));
+router.post('/notify/proforma-coordination', ensureBackend, (req, res) => proformaApiController.notifyCoordination(req, res));
 
 // ========================================
 // RUTAS DE NOTIFICACIONES DE STOCK

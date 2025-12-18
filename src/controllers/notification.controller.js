@@ -37,6 +37,36 @@ class NotificationController {
             } else if (eventName === 'notify/reservation-expiring') {
                 notificationSent = proformaNotificationService.notifyReservationExpiring(notificationData);
             }
+            // ✅ Manejar eventos específicos de entregas (acciones del chofer)
+            else if (eventName === 'entrega.llegada-confirmada') {
+                console.log('✅ Chofer llegó al destino');
+                // Broadcast a admin, cliente y chofer
+                notificationService.notifyAll('entrega:llegada-confirmada', {
+                    ...notificationData,
+                    tipo: 'entrega_action',
+                    accion: 'chofer_llego'
+                });
+                notificationSent = true;
+            } else if (eventName === 'entrega.confirmada') {
+                console.log('✅ Entrega confirmada exitosamente');
+                // Broadcast a admin, cliente y chofer
+                notificationService.notifyAll('entrega:confirmada', {
+                    ...notificationData,
+                    tipo: 'entrega_action',
+                    accion: 'entrega_confirmada'
+                });
+                notificationSent = true;
+            } else if (eventName === 'entrega.novedad-reportada') {
+                console.log('⚠️ Novedad reportada en entrega');
+                // Notificar a admin y logística
+                notificationService.notifyAll('entrega:novedad-reportada', {
+                    ...notificationData,
+                    tipo: 'entrega_action',
+                    accion: 'novedad_reportada',
+                    prioridad: 'high'
+                });
+                notificationSent = true;
+            }
             // Fallback: Notificar a un usuario específico por ID
             else if (userId || data?.user_id) {
                 const targetUserId = userId || data?.user_id;

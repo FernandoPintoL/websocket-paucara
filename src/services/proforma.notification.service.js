@@ -1,6 +1,7 @@
 import notificationService from './notification.service.js';
 import activeUsersRepository from '../repositories/activeUsers.repository.js';
 import socketRepository from '../repositories/socket.repository.js';
+import { validateProformaEstado } from '../utils/state-validator.js';
 
 /**
  * Servicio especializado para notificaciones de proformas
@@ -10,10 +11,11 @@ class ProformaNotificationService {
   /**
    * Notificar cuando se crea una proforma
    * Destinatarios: Preventistas, Cajeros, Managers, Admins
+   * Fase 2: Ahora valida el estado contra la BD centralizada
    */
-  notifyProformaCreated(data) {
+  async notifyProformaCreated(data) {
     // Destructuring con valores por defecto
-    const {
+    let {
       id,
       numero,
       cliente_id,
@@ -25,6 +27,15 @@ class ProformaNotificationService {
       estado = 'PENDIENTE',
       usuario_creador = {}
     } = data;
+
+    // Fase 2: Validar estado contra estados centralizados
+    const validation = await validateProformaEstado(estado);
+    if (!validation.valid) {
+      console.warn(`⚠️  Estado inválido en proforma: ${estado}. Usando fallback: PENDIENTE`);
+      estado = 'PENDIENTE';
+    } else {
+      console.log(`✅ Estado de proforma validado: ${estado}`);
+    }
 
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('📋 Notificación: Proforma Creada');

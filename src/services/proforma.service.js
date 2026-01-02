@@ -1,4 +1,5 @@
 import socketRepository from '../repositories/socket.repository.js';
+import { validateProformaEstado } from '../utils/state-validator.js';
 
 class ProformaService {
 
@@ -8,10 +9,11 @@ class ProformaService {
 
     /**
      * Notificar creación de proforma
+     * Fase 2: Ahora valida el estado contra la BD centralizada
      */
-    notifyProformaCreated(proformaData) {
+    async notifyProformaCreated(proformaData) {
         // Destructuring con valores por defecto para evitar undefined
-        const {
+        let {
             id,
             numero,
             cliente_id,
@@ -23,6 +25,15 @@ class ProformaService {
             estado = 'PENDIENTE',
             canal_origen = 'web'
         } = proformaData;
+
+        // Fase 2: Validar estado contra estados centralizados
+        const validation = await validateProformaEstado(estado);
+        if (!validation.valid) {
+            console.warn(`⚠️  Estado inválido en proforma: ${estado}. Usando fallback: PENDIENTE`);
+            estado = 'PENDIENTE';
+        } else {
+            console.log(`✅ Estado de proforma validado: ${estado}`);
+        }
 
         console.log(`\n📦 Nova proforma creada: ${numero} - Cliente ${cliente_id}`);
         console.log(`   ├─ ID: ${id}`);

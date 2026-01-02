@@ -23,6 +23,9 @@ import socketController from './src/controllers/socket.controller.js';
 // Importar utilidades
 import { getLocalIP } from './src/utils/network-utils.js';
 
+// Importar Estado Manager (Fase 2)
+import estadoManager from './src/services/estado-manager.service.js';
+
 // Cargar variables de entorno
 dotenv.config();
 
@@ -69,52 +72,76 @@ io.on('connection', (socket) => {
 });
 
 // Iniciar el servidor
-const PORT = getPort();
-const HOST = getHost();
-const WEBSOCKET_URL = getWebsocketUrl();
+async function startServer() {
+    try {
+        // Fase 2: Inicializar estados desde Laravel API
+        console.log('\n⏳ Inicializando servicio de estados logísticos...');
+        await estadoManager.initialize();
 
-server.listen(PORT, HOST, () => {
-    const localIP = getLocalIP();
-    console.log(`\n🚀 Servidor WebSocket corriendo en puerto ${PORT}`);
-    console.log(`\n🌐 Entorno: ${process.env.NODE_ENV}`);
-    console.log(`\n📡 Escuchando en: ${HOST}:${PORT}`);
-    console.log(`\n🔗 URL del WebSocket: ${WEBSOCKET_URL}`);
+        const PORT = getPort();
+        const HOST = getHost();
+        const WEBSOCKET_URL = getWebsocketUrl();
 
-    console.log(`\n🌐 Servidor accesible en:`);
-    console.log(`   Local: http://localhost:${PORT}`);
-    console.log(`   Red local: http://${localIP}:${PORT}`);
-    
-    if (process.env.PREFERRED_IP) {
-        console.log(`   IP Preferida: http://${process.env.PREFERRED_IP}:${PORT}`);
-    }
+        server.listen(PORT, HOST, () => {
+            const localIP = getLocalIP();
+            console.log(`\n🚀 Servidor WebSocket corriendo en puerto ${PORT}`);
+            console.log(`\n🌐 Entorno: ${process.env.NODE_ENV}`);
+            console.log(`\n📡 Escuchando en: ${HOST}:${PORT}`);
+            console.log(`\n🔗 URL del WebSocket: ${WEBSOCKET_URL}`);
 
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`\n🔧 Configuración de desarrollo:`);
-        console.log(`   CORS: Permitiendo cualquier origen (*)`);
-        console.log(`   Cliente configurado: ${process.env.CLIENT_URL || 'No configurado'}`);
-        console.log(`   Host configurado: ${HOST}`);
-        console.log(`\n⚠️  DIAGNÓSTICO DE CONECTIVIDAD:`);
-        console.log(`   Si no puedes acceder desde otra PC, verifica:`);
-        console.log(`   1. Firewall de Windows - Puerto ${PORT} debe estar abierto`);
-        console.log(`   2. Red local - Ambas PCs en la misma red`);
-        console.log(`   3. IP correcta - Usar la configurada en PREFERRED_IP o ${localIP}:${PORT}`);
-        console.log(`\n🧪 Prueba de conectividad desde otra PC:`);
-        console.log(`   Navegador: ${WEBSOCKET_URL}`);
-        console.log(`   Telnet: telnet ${process.env.PREFERRED_IP || localIP} ${PORT}`);
-    }
-});
+            console.log(`\n🌐 Servidor accesible en:`);
+            console.log(`   Local: http://localhost:${PORT}`);
+            console.log(`   Red local: http://${localIP}:${PORT}`);
 
-// Manejo de errores del servidor
-server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-        console.error(`❌ El puerto ${PORT} ya está en uso`);
-        console.error('   Intenta detener el proceso anterior o usar otro puerto');
+            if (process.env.PREFERRED_IP) {
+                console.log(`   IP Preferida: http://${process.env.PREFERRED_IP}:${PORT}`);
+            }
+
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`\n🔧 Configuración de desarrollo:`);
+                console.log(`   CORS: Permitiendo cualquier origen (*)`);
+                console.log(`   Cliente configurado: ${process.env.CLIENT_URL || 'No configurado'}`);
+                console.log(`   Host configurado: ${HOST}`);
+                console.log(`\n⚠️  DIAGNÓSTICO DE CONECTIVIDAD:`);
+                console.log(`   Si no puedes acceder desde otra PC, verifica:`);
+                console.log(`   1. Firewall de Windows - Puerto ${PORT} debe estar abierto`);
+                console.log(`   2. Red local - Ambas PCs en la misma red`);
+                console.log(`   3. IP correcta - Usar la configurada en PREFERRED_IP o ${localIP}:${PORT}`);
+                console.log(`\n🧪 Prueba de conectividad desde otra PC:`);
+                console.log(`   Navegador: ${WEBSOCKET_URL}`);
+                console.log(`   Telnet: telnet ${process.env.PREFERRED_IP || localIP} ${PORT}`);
+            }
+        });
+
+        // Manejo de errores del servidor
+        server.on('error', (error) => {
+            if (error.code === 'EADDRINUSE') {
+                console.error(`❌ El puerto ${PORT} ya está en uso`);
+                console.error('   Intenta detener el proceso anterior o usar otro puerto');
+                process.exit(1);
+            } else {
+                console.error('❌ Error del servidor:', error);
+                process.exit(1);
+            }
+        });
+    } catch (error) {
+        console.error('\n❌ Error fatal durante la inicialización:');
+        console.error(`   ${error.message}`);
+
+        if (process.env.NODE_ENV === 'development') {
+            console.error('\n📝 Pasos para resolver:');
+            console.error('   1. Verifica que Laravel está corriendo en', process.env.LARAVEL_API_URL);
+            console.error('   2. Verifica que las migraciones se ejecutaron correctamente');
+            console.error('   3. Verifica que la base de datos está accesible');
+            console.error('   4. Revisa los logs de Laravel en storage/logs/laravel.log');
+        }
+
         process.exit(1);
-    } else {
-        console.error('❌ Error del servidor:', error);
-        process.exit(1);
     }
-});
+}
+
+// Llamar a la función de inicio
+startServer();
 
 // Manejo de cierre graceful
 const gracefulShutdown = (signal) => {

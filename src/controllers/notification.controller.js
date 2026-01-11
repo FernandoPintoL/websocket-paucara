@@ -67,6 +67,51 @@ class NotificationController {
                 });
                 notificationSent = true;
             }
+            // ✅ FASE 2: Manejar eventos de cambio de estado de entregas
+            // Estos eventos vienen desde Laravel cuando cambia el estado
+            else if (eventName === 'entrega.estado_cambio') {
+                console.log('📦 Cambio de estado en entrega');
+                notificationService.notifyAll('entrega:estado_cambio', {
+                    ...notificationData,
+                    tipo: 'entrega_estado',
+                    prioridad: this.getPriorityForEntregaState(notificationData.estado_nuevo?.codigo)
+                });
+                notificationSent = true;
+            } else if (eventName === 'entrega.en_transito') {
+                console.log('📍 Entrega en tránsito - GPS activo');
+                notificationService.notifyAll('entrega:en_transito', {
+                    ...notificationData,
+                    tipo: 'entrega_tracking',
+                    prioridad: 'high'
+                });
+                notificationSent = true;
+            } else if (eventName === 'entrega.entregada') {
+                console.log('✅ Entrega completada');
+                notificationService.notifyAll('entrega:entregada', {
+                    ...notificationData,
+                    tipo: 'entrega_estado',
+                    prioridad: 'medium'
+                });
+                notificationSent = true;
+            } else if (eventName === 'entrega.problema') {
+                console.log('⚠️ Problema en entrega');
+                notificationService.notifyAll('entrega:problema', {
+                    ...notificationData,
+                    tipo: 'entrega_estado',
+                    prioridad: 'high'
+                });
+                notificationSent = true;
+            }
+            // ✅ FASE 3: Manejar eventos de ubicación GPS en tiempo real
+            else if (eventName === 'entrega.ubicacion') {
+                console.log('📍 Ubicación actualizada - Lat:', notificationData.latitud, 'Lng:', notificationData.longitud);
+                notificationService.notifyAll('entrega:ubicacion', {
+                    ...notificationData,
+                    tipo: 'entrega_tracking',
+                    prioridad: 'high'
+                });
+                notificationSent = true;
+            }
             // Fallback: Notificar a un usuario específico por ID
             else if (userId || data?.user_id) {
                 const targetUserId = userId || data?.user_id;
@@ -124,6 +169,20 @@ class NotificationController {
             message: 'WebSocket server is running',
             timestamp: new Date().toISOString()
         });
+    }
+
+    // ✅ FASE 2: Determinar prioridad de evento según estado
+    // Estados críticos (GPS activo) son high priority
+    // Estados finales son medium priority
+    getPriorityForEntregaState(estadoCodigo) {
+        const criticalStates = ['EN_TRANSITO', 'EN_CAMINO', 'LLEGO'];
+        const mediumStates = ['ENTREGADO', 'ENTREGADA'];
+        const lowStates = ['PROGRAMADO', 'ASIGNADA', 'CANCELADA'];
+
+        if (criticalStates.includes(estadoCodigo)) return 'high';
+        if (mediumStates.includes(estadoCodigo)) return 'medium';
+        if (lowStates.includes(estadoCodigo)) return 'low';
+        return 'medium'; // default
     }
 }
 

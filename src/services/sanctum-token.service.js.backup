@@ -122,20 +122,13 @@ class SanctumTokenService {
                 }
 
                 // Obtener roles del usuario
-                const modelTypeResult = await client.query(
-                    `SELECT DISTINCT model_type FROM model_has_roles WHERE model_id = $1 LIMIT 1`,
-                    [user.id]
-                );
-                
-                const modelType = modelTypeResult.rows.length > 0 ? modelTypeResult.rows[0].model_type : 'App\Models\User';
-
                 const rolesResult = await client.query(
                     `SELECT DISTINCT r.name
                      FROM model_has_roles mhr
                      JOIN roles r ON mhr.role_id = r.id
-                     WHERE mhr.model_id = $1 AND mhr.model_type = $2`,
-                    [user.id, modelType]
-                )
+                     WHERE mhr.model_id = $1 AND mhr.model_type = 'App\\\\Models\\\\User'`,
+                    [user.id]
+                );
 
                 const roles = rolesResult.rows.map(r => r.name);
 

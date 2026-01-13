@@ -578,6 +578,52 @@ class ShipmentService {
 
         return true;
     }
+
+    /**
+     * ✅ NUEVO: Notificar estadísticas actualizadas del chofer
+     * Se envía cuando las estadísticas del chofer cambian (nueva entrega, entrega completada, etc.)
+     */
+    notifyStatsUpdated(statsData) {
+        const {
+            chofer_id,
+            total_entregas,
+            entregas_completadas,
+            entregas_pendientes,
+            entregas_en_ruta,
+            tasa_exito,
+            km_estimados,
+            tiempo_promedio_minutos,
+            proxima_entrega
+        } = statsData;
+
+        console.log(`📊 Estadísticas actualizadas para chofer ${chofer_id}`);
+
+        // Notificar al chofer específico
+        socketRepository.emitToUser(chofer_id, 'estadisticas:actualizadas', {
+            total_entregas: total_entregas,
+            entregas_completadas: entregas_completadas,
+            entregas_pendientes: entregas_pendientes,
+            entregas_en_ruta: entregas_en_ruta,
+            tasa_exito: tasa_exito,
+            km_estimados: km_estimados,
+            tiempo_promedio_minutos: tiempo_promedio_minutos,
+            proxima_entrega: proxima_entrega,
+            timestamp: new Date().toISOString()
+        });
+
+        // Notificar a managers también para su dashboard
+        socketRepository.emitToRoom('managers', 'driver_stats_updated', {
+            chofer_id: chofer_id,
+            total_entregas: total_entregas,
+            entregas_completadas: entregas_completadas,
+            entregas_pendientes: entregas_pendientes,
+            entregas_en_ruta: entregas_en_ruta,
+            tasa_exito: tasa_exito,
+            timestamp: new Date().toISOString()
+        });
+
+        return true;
+    }
 }
 
 export default new ShipmentService();

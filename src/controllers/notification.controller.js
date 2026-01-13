@@ -32,10 +32,54 @@ class NotificationController {
                 notificationSent = proformaNotificationService.notifyProformaRejected(notificationData);
             } else if (eventName === 'notify/proforma-converted' || eventName === 'proforma.convertida') {
                 notificationSent = proformaNotificationService.notifyProformaConverted(notificationData);
+            } else if (eventName === 'notify/cliente-proforma-converted') {
+                // ✅ NUEVO: Notificación DIRECTA al cliente cuando su proforma se convierte
+                // Se envía sin depender de si el cliente tiene user_id o no
+                notificationSent = proformaNotificationService.notifyClientProformaConverted(notificationData);
             } else if (eventName === 'notify/stock-reserved') {
                 notificationSent = proformaNotificationService.notifyStockReserved(notificationData);
             } else if (eventName === 'notify/reservation-expiring') {
                 notificationSent = proformaNotificationService.notifyReservationExpiring(notificationData);
+            }
+            // ✅ NUEVO: Manejar asignación de entrega consolidada al chofer
+            else if (eventName === 'notify/entrega-asignada' || eventName === 'entrega.asignada' || eventName === 'entrega-asignada') {
+                console.log('🚚 NUEVA ENTREGA CONSOLIDADA ASIGNADA AL CHOFER');
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número: ${notificationData.numero_entrega}`);
+                console.log(`   Chofer ID: ${notificationData.chofer_id}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log(`   Peso Total: ${notificationData.peso_kg} kg`);
+
+                // Emitir al chofer específicamente en su canal privado
+                if (notificationData.chofer_id) {
+                    socketRepository.emitToUser(notificationData.chofer_id, 'entrega:asignada', {
+                        entrega_id: notificationData.entrega_id,
+                        numero_entrega: notificationData.numero_entrega,
+                        chofer_id: notificationData.chofer_id,
+                        chofer: notificationData.chofer,
+                        vehiculo: notificationData.vehiculo,
+                        peso_kg: notificationData.peso_kg,
+                        volumen_m3: notificationData.volumen_m3,
+                        estado: notificationData.estado,
+                        fecha_asignacion: notificationData.fecha_asignacion,
+                        mensaje: '🚚 Se te ha asignado una nueva entrega consolidada. Por favor inicia la carga de mercadería.',
+                        type: 'success',
+                        timestamp: new Date().toISOString(),
+                        notificationType: 'entrega_consolidada_asignada'
+                    });
+                    console.log(`   ✅ Notificación enviada al chofer: ${notificationData.chofer_id}`);
+                }
+
+                // También notificar a admin/logística
+                socketRepository.emitToRoom('admins', 'entrega:asignada', {
+                    ...notificationData,
+                    tipo: 'entrega_consolidada_asignada'
+                });
+                socketRepository.emitToRoom('logisticas', 'entrega:asignada', {
+                    ...notificationData,
+                    tipo: 'entrega_consolidada_asignada'
+                });
+                notificationSent = true;
             }
             // ✅ Manejar eventos específicos de entregas (acciones del chofer)
             else if (eventName === 'entrega.llegada-confirmada') {

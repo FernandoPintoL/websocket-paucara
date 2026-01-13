@@ -230,16 +230,18 @@ class ProformaNotificationService {
 
   /**
    * Notificar cuando se convierte una proforma a venta
-   * Destinatarios: Logística, Cobradores, Managers, Admins
+   * Destinatarios: Logística, Cobradores, Managers, Admins, Cliente
    */
   notifyProformaConverted(data) {
-    console.log('🎉 Notificación: Proforma Convertida');
+    console.log('🎉 Notificación: Proforma Convertida a Venta');
     console.log(`   Proforma: ${data.proforma_numero}`);
     console.log(`   Venta: ${data.venta_numero}`);
+    console.log(`   Cliente: ${data.cliente_nombre} (ID: ${data.cliente_id})`);
+    console.log(`   Total: ${data.total}`);
 
     const targetRoles = ['logistica', 'cobrador', 'manager', 'admin'];
 
-    // Emitir a cada rol
+    // Emitir a cada rol interno
     for (const role of targetRoles) {
       const room = `${role}s`;
       socketRepository.emitToRoom(room, 'proforma.convertida', {
@@ -250,7 +252,59 @@ class ProformaNotificationService {
       console.log(`   ✅ Enviado a sala: ${room}`);
     }
 
+    // ✅ NUEVO: Notificar al cliente directamente
+    if (data.cliente_id) {
+      socketRepository.emitToUser(data.cliente_id, 'proforma.convertida', {
+        proforma_id: data.proforma_id,
+        proforma_numero: data.proforma_numero,
+        venta_id: data.venta_id,
+        venta_numero: data.venta_numero,
+        total: data.total,
+        cliente_id: data.cliente_id,
+        cliente_nombre: data.cliente_nombre,
+        message: '🎉 Tu proforma ha sido convertida a venta',
+        type: 'success',
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`   ✅ Enviado a cliente directo: ${data.cliente_id}`);
+    }
+
     return true;
+  }
+
+  /**
+   * ✅ NUEVO: Notificar DIRECTAMENTE al cliente cuando su proforma se convierte a venta
+   * Esto se dispara independientemente de si el cliente tiene user_id o no
+   */
+  notifyClientProformaConverted(data) {
+    console.log('🎉 Notificación DIRECTA: Cliente - Proforma Convertida a Venta');
+    console.log(`   Cliente: ${data.cliente_nombre} (ID: ${data.cliente_id})`);
+    console.log(`   Proforma: ${data.proforma_numero}`);
+    console.log(`   Venta: ${data.venta_numero}`);
+    console.log(`   Total: ${data.total}`);
+
+    // Emitir directamente al cliente por su ID
+    if (data.cliente_id) {
+      socketRepository.emitToUser(data.cliente_id, 'proforma.convertida', {
+        proforma_id: data.proforma_id,
+        proforma_numero: data.proforma_numero,
+        venta_id: data.venta_id,
+        venta_numero: data.venta_numero,
+        cliente_id: data.cliente_id,
+        cliente_nombre: data.cliente_nombre,
+        total: data.total,
+        fecha_conversion: data.fecha_conversion,
+        message: '🎉 Tu proforma ha sido convertida a venta. Tu pedido está siendo procesado.',
+        type: 'success',
+        notificationType: 'proforma_converted',
+        timestamp: new Date().toISOString(),
+      });
+      console.log(`   ✅ Notificación enviada al cliente: ${data.cliente_id}`);
+      return true;
+    } else {
+      console.warn('⚠️ No se pudo enviar notificación al cliente: cliente_id no especificado');
+      return false;
+    }
   }
 
   /**

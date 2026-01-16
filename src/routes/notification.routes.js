@@ -111,3 +111,39 @@ router.post('/notify/entrega-ubicacion', ensureBackend, (req, res, next) => {
 });
 
 export default router;
+
+// ✅ CREDITOS: Endpoints específicos para eventos de crédito
+router.post('/notify/credito-creado', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.creado';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-aprobado', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.aprobado';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-rechazado', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.rechazado';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-pago-registrado', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.pago_registrado';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-vencido', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.vencido';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-critico', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.critico';
+    notificationController.handleNotification(req, res, next);
+});
+
+router.post('/notify/credito-limite-actualizado', ensureBackend, (req, res, next) => {
+    req.body.event = 'credito.limite_actualizado';
+    notificationController.handleNotification(req, res, next);
+});

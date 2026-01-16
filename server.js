@@ -74,9 +74,12 @@ io.on('connection', (socket) => {
 // Iniciar el servidor
 async function startServer() {
     try {
-        // Fase 2: Inicializar estados desde Laravel API
+        // Fase 2: Inicializar estados (sin bloquear el startup)
         console.log('\n⏳ Inicializando servicio de estados logísticos...');
-        await estadoManager.initialize();
+        // NO esperamos initialize() - se ejecuta en background
+        estadoManager.initialize().catch(error => {
+            console.error('⚠️  Error en inicialización background:', error.message);
+        });
 
         const PORT = getPort();
         const HOST = getHost();

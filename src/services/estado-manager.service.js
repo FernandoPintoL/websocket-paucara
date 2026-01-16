@@ -15,98 +15,126 @@ import stateCache from '../utils/state-cache.js';
 class EstadoManagerService {
     constructor() {
         this.initialized = false;
-        this.initPromise = null;
+        this.apiHealthy = false;
+        this.loadingPromises = new Map(); // Track in-flight requests per categoria
         this.categorias = [];
+        this.categoriasLoaded = false;
     }
 
     /**
-     * Inicializar: cargar todos los estados en cache desde la API
-     * Se ejecuta una sola vez al arrancar el servidor
+     * Inicializar: solo verificar conectividad (NO bloquea el startup)
+     * Carga de datos ocurre bajo demanda (lazy loading)
      * @returns {Promise<void>}
      */
     async initialize() {
         if (this.initialized) {
-            console.log('ℹ️  Estados already initialized');
+            console.log('ℹ️  Estado Manager already initialized');
             return;
         }
 
-        if (this.initPromise) {
-            return this.initPromise;
-        }
+        this.initialized = true;
 
-        this.initPromise = (async () => {
-            try {
-                console.log('\n🔄 ============================================');
-                console.log('🔄 Inicializando estados desde Laravel API...');
-                console.log('🔄 ============================================\n');
+        try {
+            console.log('\n🔄 ============================================');
+            console.log('🔄 Verificando conectividad con Laravel API...');
+            console.log('🔄 ============================================\n');
 
-                // Primero, verificar conectividad
-                const apiHealthy = await laravelApiService.healthCheck();
-                if (!apiHealthy) {
-                    throw new Error('Laravel API is not accessible. Make sure it\'s running on ' + process.env.LARAVEL_API_URL);
-                }
+            // Verificar conectividad (rápido, sin bloquear)
+            this.apiHealthy = await laravelApiService.healthCheck();
 
-                // Obtener todas las categorías
-                const categorias = await laravelApiService.fetchCategorias();
-                this.categorias = categorias.map(cat => cat.codigo);
-
-                console.log(`\n📦 Found ${categorias.length} categorias: ${this.categorias.join(', ')}\n`);
-
-                // Cargar estados para cada categoría
-                let totalEstados = 0;
-                for (const cat of categorias) {
-                    try {
-                        const estados = await laravelApiService.fetchEstados(cat.codigo);
-                        stateCache.set(cat.codigo, estados);
-                        totalEstados += estados.length;
-                        console.log(`   ✅ ${cat.codigo.padEnd(20)} : ${estados.length} estados`);
-                    } catch (error) {
-                        console.error(`   ❌ ${cat.codigo.padEnd(20)} : Error - ${error.message}`);
-                        throw error;
-                    }
-                }
-
-                this.initialized = true;
-                console.log('\n🎉 ============================================');
-                console.log(`🎉 Estados inicializados correctamente!`);
-                console.log(`🎉 Total: ${totalEstados} estados en ${categorias.length} categorías`);
-                console.log('🎉 ============================================\n');
-
-            } catch (error) {
-                console.error('\n❌ ============================================');
-                console.error('❌ Error inicializando estados:', error.message);
-                console.error('❌ ============================================\n');
-                this.initPromise = null;
-                throw error;
+            if (!this.apiHealthy) {
+                console.warn('⚠️  API no disponible al iniciar. Reintentar en background...');
+                // Reintentar en background sin bloquear
+                this.retryApiHealthCheck();
+            } else {
+                console.log('✅ API disponible. Los datos se cargarán bajo demanda.\n');
+                // Pre-cargar categorías en background (opcional, mejora UX)
+                this.loadCategoriasInBackground();
             }
-        })();
 
-        return this.initPromise;
+        } catch (error) {
+            console.error('⚠️  Error durante inicialización:', error.message);
+            this.apiHealthy = false;
+            this.retryApiHealthCheck();
+        }
     }
 
     /**
-     * Obtener estados de una categoría (con cache automático)
+     * Reintentar health check en background cada 10 segundos
+     * @private
+     */
+    retryApiHealthCheck() {
+        setTimeout(async () => {
+            try {
+                const healthy = await laravelApiService.healthCheck();
+                if (healthy && !this.apiHealthy) {
+                    this.apiHealthy = true;
+                    console.log('✅ API recuperada. Cargando categorías...');
+                    this.loadCategoriasInBackground();
+                }
+            } catch (error) {
+                console.warn('⚠️  Health check fallido, reintentando en 10s...');
+                this.retryApiHealthCheck();
+            }
+        }, 10000);
+    }
+
+    /**
+     * Cargar categorías en background sin bloquear
+     * @private
+     */
+    async loadCategoriasInBackground() {
+        if (this.categoriasLoaded) return;
+
+        try {
+            const categorias = await laravelApiService.fetchCategorias();
+            this.categorias = categorias.map(cat => cat.codigo);
+            this.categoriasLoaded = true;
+            console.log(`📦 Categorías disponibles: ${this.categorias.join(', ')}`);
+        } catch (error) {
+            console.warn('⚠️  No se pudieron cargar categorías:', error.message);
+            setTimeout(() => this.loadCategoriasInBackground(), 10000);
+        }
+    }
+
+    /**
+     * Obtener estados de una categoría (lazy loading con cache automático)
+     * Evita solicitudes duplicadas mientras se carga la misma categoría
      * @param {string} categoria - Categoría de estados
      * @returns {Promise<Array>} Array de estados
      */
     async getEstados(categoria) {
-        // Intentar obtener del cache primero
+        // 1. Intentar obtener del cache primero (más rápido)
         let estados = stateCache.get(categoria);
-
         if (estados) {
             return estados;
         }
 
-        // Si no está en cache, obtener de API
-        try {
-            console.log(`🔄 Cache miss for ${categoria}, fetching from API...`);
-            estados = await laravelApiService.fetchEstados(categoria);
-            stateCache.set(categoria, estados);
-            return estados;
-        } catch (error) {
-            console.error(`❌ Error obteniendo estados de ${categoria}:`, error.message);
-            return [];
+        // 2. Si ya hay una solicitud en vuelo, esperar esa promesa
+        if (this.loadingPromises.has(categoria)) {
+            return this.loadingPromises.get(categoria);
         }
+
+        // 3. Crear nueva promesa de carga
+        const loadPromise = (async () => {
+            try {
+                console.log(`🔄 Cargando ${categoria} desde API...`);
+                const fetchedEstados = await laravelApiService.fetchEstados(categoria);
+                stateCache.set(categoria, fetchedEstados);
+                console.log(`✅ ${categoria} cargado y cacheado (${fetchedEstados.length} estados)`);
+                return fetchedEstados;
+            } catch (error) {
+                console.error(`❌ Error cargando ${categoria}:`, error.message);
+                return [];
+            } finally {
+                // Limpiar promesa después de completarse
+                this.loadingPromises.delete(categoria);
+            }
+        })();
+
+        // Guardar la promesa para evitar solicitudes duplicadas
+        this.loadingPromises.set(categoria, loadPromise);
+        return loadPromise;
     }
 
     /**

@@ -8,6 +8,44 @@ import socketRepository from '../repositories/socket.repository.js';
  */
 class DashboardService {
     /**
+     * Notificar actualizaciones de estadísticas de entregas
+     *
+     * Notifica a todos los clientes conectados sobre cambios en las estadísticas de entregas
+     * Esta función es llamada desde Laravel cuando hay cambios en entregas
+     *
+     * @param {Object} stats - Estadísticas de entregas { estados, por_zona, top_choferes, etc }
+     * @param {string} timestamp - Timestamp del cambio
+     */
+    static async notifyEntregasStatsUpdated(stats, timestamp = new Date().toISOString()) {
+        try {
+            const payload = {
+                success: true,
+                data: stats,
+                timestamp: timestamp,
+                source: 'backend'
+            };
+
+            // Broadcast a todos los usuarios conectados (no está filtrado por rol porque todos pueden ver dashboard)
+            socketRepository.broadcast(null, 'entregas:stats-updated', payload);
+
+            console.log(`📦 [Dashboard Service] Estadísticas de entregas actualizadas`);
+            console.log(`   Entregas totales: ${stats.estados_total}`);
+            console.log(`   Zonas: ${stats.por_zona?.length || 0}`);
+            console.log(`   Timestamp: ${timestamp}`);
+            console.log(`   Broadcasted to: todos los clientes`);
+
+            return {
+                success: true,
+                message: 'Entregas stats updated successfully',
+                timestamp: timestamp
+            };
+        } catch (error) {
+            console.error('❌ Error notifying entregas stats:', error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Notificar actualizaciones de métricas del dashboard
      *
      * @param {Object} data - { metricas, periodo, timestamp }

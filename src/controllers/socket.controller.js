@@ -119,6 +119,13 @@ class SocketController {
             this.handleRouteEvent(socket, data);
         });
 
+        // ========== EVENTOS DE DASHBOARD DE ENTREGAS ==========
+
+        // Evento de solicitud de estadísticas de entregas
+        socket.on('entregas:get-stats', (data) => {
+            this.handleGetEntregasStats(socket, data);
+        });
+
         // Evento de desconexión
         socket.on('disconnect', () => {
             this.handleDisconnect(socket);
@@ -495,6 +502,53 @@ class SocketController {
         });
 
         return true;
+    }
+
+    // ========================================
+    // MANEJADORES DE DASHBOARD DE ENTREGAS
+    // ========================================
+
+    /**
+     * Manejar solicitud de estadísticas de entregas
+     * El cliente solicita estadísticas cuando se conecta o durante periodic polling fallback
+     *
+     * @param {Socket} socket - Socket del cliente
+     * @param {Object} data - Datos (puede estar vacío)
+     */
+    async handleGetEntregasStats(socket, data = {}) {
+        try {
+            const user = activeUsersRepository.getUserBySocketId(socket.id);
+
+            console.log(`📊 [Entregas Stats] Solicitud de estadísticas desde ${user?.userName || 'usuario'}`);
+
+            // Importar aquí para evitar circular dependencies
+            const { default: EntregasStatsService } = await import('../services/entregas-stats.service.js');
+
+            // Obtener estadísticas del servicio
+            const stats = await EntregasStatsService.fetchStats();
+
+            // Enviar estadísticas al cliente que las solicitó
+            socket.emit('entregas:stats-updated', {
+                success: true,
+                data: stats,
+                timestamp: new Date().toISOString(),
+                source: 'websocket'
+            });
+
+            console.log(`✅ [Entregas Stats] Estadísticas enviadas al cliente ${socket.id}`);
+
+            return true;
+        } catch (error) {
+            console.error('❌ [Entregas Stats] Error al obtener estadísticas:', error.message);
+
+            socket.emit('entregas:stats-error', {
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+
+            return false;
+        }
     }
 }
 

@@ -110,7 +110,26 @@ router.post('/notify/entrega-ubicacion', ensureBackend, (req, res, next) => {
     notificationController.handleNotification(req, res, next);
 });
 
-export default router;
+// ✅ FASE 4: Endpoint para asignación de entrega consolidada al chofer
+// POST /notify/entrega-asignada
+// Headers: { 'x-ws-secret': '...' }
+// Body: {
+//   entrega_id: int,
+//   numero_entrega: string,
+//   chofer_id: int,
+//   chofer: { id, nombre, name },
+//   vehiculo: { id, placa, marca, modelo },
+//   peso_kg: float,
+//   volumen_m3: float,
+//   estado: string,
+//   fecha_asignacion: ISO8601,
+//   mensaje: string,
+//   timestamp: ISO8601
+// }
+router.post('/notify/entrega-asignada', ensureBackend, (req, res, next) => {
+    req.body.event = 'notify/entrega-asignada';
+    notificationController.handleNotification(req, res, next);
+});
 
 // ✅ CREDITOS: Endpoints específicos para eventos de crédito
 router.post('/notify/credito-creado', ensureBackend, (req, res, next) => {
@@ -147,3 +166,5 @@ router.post('/notify/credito-limite-actualizado', ensureBackend, (req, res, next
     req.body.event = 'credito.limite_actualizado';
     notificationController.handleNotification(req, res, next);
 });
+
+export default router;

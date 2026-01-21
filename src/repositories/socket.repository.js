@@ -17,8 +17,22 @@ class SocketRepository {
         }
         // Normalizar userId a string para consistencia
         const normalizedUserId = String(userId);
-        this.io.to(`user_${normalizedUserId}`).emit(event, data);
-        return true;
+        const room = `user_${normalizedUserId}`;
+
+        // 🔍 LOG: Verificar cuántos clientes están en esa sala
+        const sockets = this.io.sockets.adapter.rooms.get(room);
+        const clientsInRoom = sockets ? sockets.size : 0;
+
+        console.log(`\n📤 EMITIR A USUARIO:`);
+        console.log(`   Sala: ${room}`);
+        console.log(`   Clientes conectados en sala: ${clientsInRoom}`);
+        console.log(`   Evento: ${event}`);
+        console.log(`   Datos: ${JSON.stringify(data, null, 2)}`);
+        console.log(`   ⚠️  SI clientsInRoom=0, el usuario NO está conectado en esta sala`);
+        console.log(`\n`);
+
+        this.io.to(room).emit(event, data);
+        return clientsInRoom > 0; // Retornar true si se emitió a alguien
     }
 
     // Emitir a una sala/grupo

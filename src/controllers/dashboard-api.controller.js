@@ -7,6 +7,45 @@ import DashboardService from '../services/dashboard.service.js';
  */
 class DashboardApiController {
     /**
+     * Notificar actualizaciones de estadísticas de entregas
+     *
+     * Endpoint: POST /api/notify/entregas-stats
+     * Llamado desde Laravel cuando hay cambios en entregas
+     *
+     * @param {Express.Request} req
+     * @param {Express.Response} res
+     */
+    static async notifyEntregasStats(req, res) {
+        try {
+            const { stats, timestamp } = req.body;
+
+            // Validar que los datos requeridos estén presentes
+            if (!stats || typeof stats !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid stats data: stats must be an object'
+                });
+            }
+
+            await DashboardService.notifyEntregasStatsUpdated(
+                stats,
+                timestamp || new Date().toISOString()
+            );
+
+            res.status(200).json({
+                success: true,
+                message: 'Entregas stats broadcasted successfully'
+            });
+        } catch (error) {
+            console.error('❌ Error broadcasting entregas stats:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Notificar actualizaciones de métricas del dashboard
      *
      * @param {Express.Request} req

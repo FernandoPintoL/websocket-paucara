@@ -67,7 +67,7 @@ class ProformaNotificationService {
     // Emitir a los grupos que deben recibir esta notificación
     // Profesionales: preventista, cajero, manager, admin
     // Clientes: también deben recibir para ver estado de sus proformas
-    const targetRoles = ['preventista', 'cajero', 'manager', 'admin'];
+    const targetRoles = ['preventista', 'cajero', 'manager', 'admin', 'Preventista', 'Cajero', 'Manager', 'Admin'];
 
     // Emitir a cada rol profesional
     for (const role of targetRoles) {
@@ -76,23 +76,16 @@ class ProformaNotificationService {
       console.log(`   ✅ Enviado a sala: ${room}`);
     }
 
-    // ✅ IMPORTANTE: También enviar a todos los clientes (cliente type users)
-    // Los clientes necesitan recibir notificaciones de sus propias proformas
-    socketRepository.emitToRoom('clients', 'proforma.creada', notificationData);
-    console.log(`   ✅ Enviado a sala: clients`);
+    // ❌ COMENTADO: No enviar a todos los clientes (privacidad)
+    // Los clientes solo verán sus propias proformas, no las de otros clientes
+    // socketRepository.emitToRoom('clients', 'proforma.creada', notificationData);
+    // console.log(`   ✅ Enviado a sala: clients`);
 
-    // También notificar al cliente directamente por su ID
+    // ✅ Notificar SOLO al cliente propietario por su ID
+    // Solo el cliente que creó la proforma puede verla (privacidad)
     if (cliente_id) {
-      socketRepository.emitToUser(cliente_id, 'proforma_created_confirmation', {
-        proforma_id: id,
-        numero: numero,
-        total: total || 0,
-        items_count: items?.length || 0,
-        message: '✅ Tu pedido ha sido recibido y está en revisión',
-        type: 'success',
-        timestamp: new Date().toISOString()
-      });
-      console.log(`   ✅ Enviado a cliente directo: ${cliente_id}`);
+      socketRepository.emitToUser(cliente_id, 'proforma.creada', notificationData);
+      console.log(`   ✅ Enviado a cliente directo (SOLO PROPIETARIO): ${cliente_id}`);
     }
 
     return true;
@@ -118,7 +111,7 @@ class ProformaNotificationService {
     console.log(`   Aprobador: ${usuario_aprobador?.name || 'Sistema'}`);
     console.log(`   Cliente: ${cliente?.nombre} (ID: ${cliente_id})`);
 
-    const targetRoles = ['preventista', 'manager', 'admin'];
+    const targetRoles = ['preventista', 'manager', 'admin', 'Preventista', 'Manager', 'Admin'];
 
     // Emitir a roles específicos
     for (const role of targetRoles) {
@@ -184,7 +177,7 @@ class ProformaNotificationService {
     console.log(`   Cliente: ${cliente?.nombre} (ID: ${cliente_id})`);
     console.log(`   Motivo: ${motivo_rechazo || 'No especificado'}`);
 
-    const targetRoles = ['preventista', 'manager', 'admin'];
+    const targetRoles = ['preventista', 'manager', 'admin', 'Preventista', 'Manager', 'Admin'];
 
     // Emitir a roles específicos
     for (const role of targetRoles) {
@@ -239,7 +232,7 @@ class ProformaNotificationService {
     console.log(`   Cliente: ${data.cliente_nombre} (ID: ${data.cliente_id})`);
     console.log(`   Total: ${data.total}`);
 
-    const targetRoles = ['logistica', 'cobrador', 'manager', 'admin'];
+    const targetRoles = ['logistica', 'cobrador', 'manager', 'admin', 'Logistica', 'Cobrador', 'Manager', 'Admin'];
 
     // Emitir a cada rol interno
     for (const role of targetRoles) {

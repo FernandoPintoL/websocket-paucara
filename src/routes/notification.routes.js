@@ -39,6 +39,25 @@ router.post('/notify/proforma-converted', ensureBackend, (req, res, next) => {
     notificationController.handleNotification(req, res, next);
 });
 
+// ✅ NUEVO: Endpoint para notificación directa al cliente cuando su proforma se convierte a venta
+// POST /notify/cliente-proforma-converted
+// Headers: { 'x-ws-secret': '...' }
+// Body: {
+//   cliente_id: int,
+//   cliente_nombre: string,
+//   proforma_id: int,
+//   proforma_numero: string,
+//   venta_id: int,
+//   venta_numero: string,
+//   total: float,
+//   fecha_conversion: ISO8601,
+//   tipo_notificacion: 'cliente'
+// }
+router.post('/notify/cliente-proforma-converted', ensureBackend, (req, res, next) => {
+    req.body.event = 'proforma.cliente.convertida';
+    notificationController.handleNotification(req, res, next);
+});
+
 // ✅ Endpoints específicos para ventas (estado logístico)
 router.post('/notify/venta-estado-cambio', ensureBackend, (req, res, next) => {
     req.body.event = 'venta.estado_cambio';

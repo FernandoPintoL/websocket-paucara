@@ -37,10 +37,14 @@ class SanctumAuthMiddleware {
      */
     async validateSanctumToken(socket, token) {
         try {
+            // 🔍 DEBUG: Log del token recibido
+            console.log(`🔍 [SanctumAuth] Validando token: ${token.substring(0, 20)}...`);
+
             // Validar el token contra la BD
             const validation = await sanctumTokenService.validateToken(token);
 
             if (!validation.valid) {
+                console.error(`❌ [SanctumAuth] Token inválido: ${validation.code} - ${validation.message}`);
                 return {
                     success: false,
                     message: validation.message,
@@ -49,6 +53,9 @@ class SanctumAuthMiddleware {
             }
 
             // Token válido, retornar datos del usuario
+            console.log(`✅ [SanctumAuth] Token validado exitosamente`);
+            console.log(`✅ [SanctumAuth] Usuario ID: ${validation.userId}, Nombre: ${validation.userName}, Tipo: ${validation.userType}`);
+
             return {
                 success: true,
                 userId: validation.userId,

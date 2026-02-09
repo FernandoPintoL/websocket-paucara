@@ -76,6 +76,7 @@ class SanctumTokenService {
                 );
 
                 if (tokenResult.rows.length === 0) {
+                    console.error(`❌ [SanctumToken] Token NO encontrado en BD. Token ID: ${tokenId}`);
                     return {
                         valid: false,
                         message: 'Token no encontrado',
@@ -84,6 +85,7 @@ class SanctumTokenService {
                 }
 
                 const tokenRecord = tokenResult.rows[0];
+                console.log(`✅ [SanctumToken] Token encontrado en BD. Token ID: ${tokenRecord.id}, Tokenable ID (user_id): ${tokenRecord.tokenable_id}`);
 
                 // Validar expiración
                 if (tokenRecord.expires_at && new Date(tokenRecord.expires_at) < new Date()) {
@@ -103,6 +105,7 @@ class SanctumTokenService {
                 );
 
                 if (userResult.rows.length === 0) {
+                    console.error(`❌ [SanctumToken] Usuario NO encontrado en BD. User ID: ${tokenRecord.tokenable_id}`);
                     return {
                         valid: false,
                         message: 'Usuario asociado al token no encontrado',
@@ -111,15 +114,19 @@ class SanctumTokenService {
                 }
 
                 const user = userResult.rows[0];
+                console.log(`✅ [SanctumToken] Usuario obtenido de BD: ID=${user.id}, Nombre=${user.name}, Email=${user.email}`);
 
                 // Validar que el usuario esté activo
                 if (!user.activo) {
+                    console.error(`❌ [SanctumToken] Usuario inactivo: ${user.name} (ID: ${user.id})`);
                     return {
                         valid: false,
                         message: 'Usuario inactivo',
                         code: 'USER_INACTIVE'
                     };
                 }
+
+                console.log(`✅ [SanctumToken] Usuario activo: ${user.name} (ID: ${user.id})`);
 
                 // Obtener roles del usuario
                 const modelTypeResult = await client.query(

@@ -76,6 +76,9 @@ class AuthService {
             console.log(`   ID Usuario: ${normalizedUserId}`);
             console.log(`   IP: ${clientIP}`);
             console.log(`   Socket ID: ${socket.id}`);
+            console.log(`   🏠 Unido a salas:`);
+            console.log(`      └─ user_${normalizedUserId} (sala personal)`);
+            this.logRoomsForType(userType);
 
             // PASO 7: Notificar a otros usuarios sobre la conexión
             socketRepository.broadcast(socket, 'user_connected', {
@@ -109,8 +112,11 @@ class AuthService {
     }
 
     // Unir usuario a salas según su tipo
+    // ✅ IMPORTANTE: Normalizar userType a minúsculas para evitar problemas case-sensitive
     joinUserToRooms(socket, userType) {
-        switch (userType) {
+        const normalizedType = (userType || '').toLowerCase().trim();
+
+        switch (normalizedType) {
             case 'cobrador':
                 socketRepository.joinRoom(socket, 'cobradores');
                 break;
@@ -122,10 +128,62 @@ class AuthService {
                 socketRepository.joinRoom(socket, 'admins'); // Los managers también reciben notificaciones de admin
                 break;
             case 'admin':
+            case 'super admin': // ✅ NUEVO: Soportar "Super Admin" como equivalente de admin
                 socketRepository.joinRoom(socket, 'admins');
                 socketRepository.joinRoom(socket, 'managers'); // Los admins también reciben notificaciones de managers
                 socketRepository.joinRoom(socket, 'cobradores'); // Los admins también reciben notificaciones de cobradores
                 break;
+            case 'cajero':
+                socketRepository.joinRoom(socket, 'cajeros');
+                break;
+            case 'preventista':
+                socketRepository.joinRoom(socket, 'preventistas');
+                break;
+            case 'logistica':
+                socketRepository.joinRoom(socket, 'logisticas');
+                break;
+            default:
+                // Fallback: Si no coincide ningún tipo conocido, usar el tipo como nombre de sala
+                if (normalizedType) {
+                    socketRepository.joinRoom(socket, normalizedType + 's');
+                    console.warn(`⚠️  Tipo de usuario no reconocido: ${userType} → Unido a sala: ${normalizedType}s`);
+                }
+        }
+    }
+
+    // Registrar en logs las salas según el tipo de usuario
+    // ✅ IMPORTANTE: Normalizar userType a minúsculas para evitar problemas case-sensitive
+    logRoomsForType(userType) {
+        const normalizedType = (userType || '').toLowerCase().trim();
+
+        switch (normalizedType) {
+            case 'cobrador':
+                console.log(`      └─ cobradores (sala de rol)`);
+                break;
+            case 'client':
+                console.log(`      └─ clients (sala de rol)`);
+                break;
+            case 'manager':
+                console.log(`      ├─ managers (sala de rol)`);
+                console.log(`      └─ admins (para recibir notificaciones de admin)`);
+                break;
+            case 'admin':
+            case 'super admin':
+                console.log(`      ├─ admins (sala de rol)`);
+                console.log(`      ├─ managers (para recibir notificaciones de managers)`);
+                console.log(`      └─ cobradores (para recibir notificaciones de cobradores)`);
+                break;
+            case 'preventista':
+                console.log(`      └─ preventistas (sala de rol)`);
+                break;
+            case 'cajero':
+                console.log(`      └─ cajeros (sala de rol)`);
+                break;
+            case 'logistica':
+                console.log(`      └─ logisticas (sala de rol)`);
+                break;
+            default:
+                console.log(`      └─ ${normalizedType}s (sala de rol) [tipo personalizado]`);
         }
     }
 

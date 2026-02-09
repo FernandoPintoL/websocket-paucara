@@ -186,4 +186,56 @@ router.post('/notify/credito-limite-actualizado', ensureBackend, (req, res, next
     notificationController.handleNotification(req, res, next);
 });
 
+// ✅ NUEVOS: Endpoints para confirmación de venta entregada (individual)
+// POST /notify/venta-entregada-cliente
+// Headers: { 'x-ws-secret': '...' }
+// Body: {
+//   venta_id: int,
+//   venta_numero: string,
+//   user_id: int (cliente.user_id),
+//   cliente_nombre: string,
+//   entrega_id: int,
+//   numero_entrega: string,
+//   mensaje: string
+// }
+router.post('/notify/venta-entregada-cliente', ensureBackend, (req, res, next) => {
+    req.body.event = 'notify/venta-entregada-cliente';
+    notificationController.handleNotification(req, res, next);
+});
+
+// POST /notify/venta-entregada-admin
+// Headers: { 'x-ws-secret': '...' }
+// Body: {
+//   venta_id: int,
+//   venta_numero: string,
+//   cliente_nombre: string,
+//   cliente_id: int,
+//   entrega_id: int,
+//   numero_entrega: string,
+//   chofer: { id, nombre },
+//   mensaje: string
+// }
+router.post('/notify/venta-entregada-admin', ensureBackend, (req, res, next) => {
+    req.body.event = 'notify/venta-entregada-admin';
+    notificationController.handleNotification(req, res, next);
+});
+
+// POST /notify/entrega-finalizada-admin
+// Headers: { 'x-ws-secret': '...' }
+// Body: {
+//   entrega_id: int,
+//   numero_entrega: string,
+//   cantidad_ventas: int,
+//   clientes_unicos: int,
+//   clientes_nombres: string,
+//   chofer: { id, nombre },
+//   vehiculo: { id, placa, marca, modelo },
+//   fecha_entrega: ISO8601,
+//   mensaje: string
+// }
+router.post('/notify/entrega-finalizada-admin', ensureBackend, (req, res, next) => {
+    req.body.event = 'notify/entrega-finalizada-admin';
+    notificationController.handleNotification(req, res, next);
+});
+
 export default router;

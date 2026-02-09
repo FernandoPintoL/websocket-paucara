@@ -1,5 +1,6 @@
 import notificationService from '../services/notification.service.js';
 import proformaNotificationService from '../services/proforma.notification.service.js';
+import socketRepository from '../repositories/socket.repository.js';
 
 class NotificationController {
     // Manejar notificaciones genéricas desde Laravel
@@ -81,6 +82,45 @@ class NotificationController {
                 });
                 notificationSent = true;
             }
+            // ✅ NUEVO: Manejar notificación de ventas en preparación de carga (para CLIENTES)
+            else if (eventName === 'notify/venta-preparacion-carga' || eventName === 'venta.preparacion_carga' || eventName === 'venta.preparacion-carga') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('📦 VENTA EN PREPARACION DE CARGA - NOTIFICANDO A CLIENTE');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   User ID (Cliente): ${notificationData.user_id}`);
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Ventas: ${notificationData.ventas_numeros?.join(', ')}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ CRÍTICO: Emitir al CLIENTE en su canal privado (user_id)
+                if (notificationData.user_id) {
+                    socketRepository.emitToUser(notificationData.user_id, 'venta:preparacion-carga', {
+                        entrega_id: notificationData.entrega_id,
+                        numero_entrega: notificationData.numero_entrega,
+                        estado_entrega: notificationData.estado_entrega,
+                        ventas_ids: notificationData.ventas_ids,
+                        ventas_numeros: notificationData.ventas_numeros,
+                        cantidad_ventas: notificationData.cantidad_ventas,
+                        chofer: notificationData.chofer,
+                        vehiculo: notificationData.vehiculo,
+                        peso_kg: notificationData.peso_kg,
+                        volumen_m3: notificationData.volumen_m3,
+                        mensaje: notificationData.mensaje || 'Tu venta está en preparación de carga',
+                        type: 'info',
+                        timestamp: new Date().toISOString(),
+                        notificationType: 'venta_preparacion_carga'
+                    });
+                    console.log(`   ✅ Notificación enviada al cliente: user_${notificationData.user_id}`);
+                } else {
+                    console.log(`   ⚠️ No hay user_id en los datos - No se puede notificar al cliente`);
+                }
+
+                notificationSent = true;
+            }
             // ✅ Manejar eventos específicos de entregas (acciones del chofer)
             else if (eventName === 'entrega.llegada-confirmada') {
                 console.log('✅ Chofer llegó al destino');
@@ -109,6 +149,397 @@ class NotificationController {
                     accion: 'novedad_reportada',
                     prioridad: 'high'
                 });
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Manejar notificación de ventas listo para entrega (para CLIENTES)
+            else if (eventName === 'notify/venta-listo-para-entrega' || eventName === 'venta.listo-para-entrega') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('📦 VENTA LISTO PARA ENTREGA - NOTIFICANDO A CLIENTE');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   User ID (Cliente): ${notificationData.user_id}`);
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Ventas: ${notificationData.ventas_numeros?.join(', ')}`);
+                console.log(`   Estado Anterior: ${notificationData.estado_logistico_anterior}`);
+                console.log(`   Estado Nuevo: ${notificationData.estado_logistico_nuevo}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ CRÍTICO: Emitir al CLIENTE en su canal privado (user_id)
+                if (notificationData.user_id) {
+                    socketRepository.emitToUser(notificationData.user_id, 'venta:listo-para-entrega', {
+                        entrega_id: notificationData.entrega_id,
+                        numero_entrega: notificationData.numero_entrega,
+                        estado_entrega: notificationData.estado_entrega,
+                        estado_logistico_anterior: notificationData.estado_logistico_anterior,
+                        estado_logistico_nuevo: notificationData.estado_logistico_nuevo,
+                        ventas_ids: notificationData.ventas_ids,
+                        ventas_numeros: notificationData.ventas_numeros,
+                        cantidad_ventas: notificationData.cantidad_ventas,
+                        chofer: notificationData.chofer,
+                        vehiculo: notificationData.vehiculo,
+                        peso_kg: notificationData.peso_kg,
+                        volumen_m3: notificationData.volumen_m3,
+                        mensaje: notificationData.mensaje || 'Tu venta está lista para ser enviada',
+                        type: 'success',
+                        timestamp: new Date().toISOString(),
+                        notificationType: 'venta_listo_para_entrega'
+                    });
+                    console.log(`   ✅ Notificación enviada al cliente: user_${notificationData.user_id}`);
+                } else {
+                    console.log(`   ⚠️ No hay user_id en los datos - No se puede notificar al cliente`);
+                }
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Manejar notificación de ventas listo para entrega (para ADMINS Y CAJEROS)
+            else if (eventName === 'notify/venta-listo-para-entrega-admin') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('📦 VENTAS LISTO PARA ENTREGA - NOTIFICANDO A ADMINS Y CAJEROS');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Ventas: ${notificationData.ventas_numeros?.join(', ')}`);
+                console.log(`   Clientes Únicos: ${notificationData.clientes_unicos}`);
+                console.log(`   Clientes: ${notificationData.clientes_nombres}`);
+                console.log(`   Estado Anterior: ${notificationData.estado_logistico_anterior}`);
+                console.log(`   Estado Nuevo: ${notificationData.estado_logistico_nuevo}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir a ADMINS
+                socketRepository.emitToRoom('admins', 'venta:listo-para-entrega-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    estado_logistico_anterior: notificationData.estado_logistico_anterior,
+                    estado_logistico_nuevo: notificationData.estado_logistico_nuevo,
+                    ventas_ids: notificationData.ventas_ids,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    peso_kg: notificationData.peso_kg,
+                    volumen_m3: notificationData.volumen_m3,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_listo_para_entrega_admin'
+                });
+                console.log(`   ✅ Notificación enviada a admins`);
+
+                // ✅ Emitir a CAJEROS
+                socketRepository.emitToRoom('cobradores', 'venta:listo-para-entrega-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    estado_logistico_anterior: notificationData.estado_logistico_anterior,
+                    estado_logistico_nuevo: notificationData.estado_logistico_nuevo,
+                    ventas_ids: notificationData.ventas_ids,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    peso_kg: notificationData.peso_kg,
+                    volumen_m3: notificationData.volumen_m3,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_listo_para_entrega_admin'
+                });
+                console.log(`   ✅ Notificación enviada a cajeros`);
+
+                // ✅ Emitir a MANAGERS
+                socketRepository.emitToRoom('managers', 'venta:listo-para-entrega-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    estado_logistico_anterior: notificationData.estado_logistico_anterior,
+                    estado_logistico_nuevo: notificationData.estado_logistico_nuevo,
+                    ventas_ids: notificationData.ventas_ids,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    peso_kg: notificationData.peso_kg,
+                    volumen_m3: notificationData.volumen_m3,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_listo_para_entrega_admin'
+                });
+                console.log(`   ✅ Notificación enviada a managers`);
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Manejar notificación de venta en tránsito (para CLIENTES)
+            else if (eventName === 'notify/venta-en-transito') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('🚚 VENTA EN TRÁNSITO - NOTIFICANDO A CLIENTE');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   User ID (Cliente): ${notificationData.user_id}`);
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir al CLIENTE en su canal privado (user_id)
+                if (notificationData.user_id) {
+                    socketRepository.emitToUser(notificationData.user_id, 'venta:en-transito', {
+                        entrega_id: notificationData.entrega_id,
+                        numero_entrega: notificationData.numero_entrega,
+                        estado_entrega: notificationData.estado_entrega,
+                        ventas_ids: notificationData.ventas_ids,
+                        ventas_numeros: notificationData.ventas_numeros,
+                        cantidad_ventas: notificationData.cantidad_ventas,
+                        chofer: notificationData.chofer,
+                        vehiculo: notificationData.vehiculo,
+                        mensaje: notificationData.mensaje,
+                        type: 'info',
+                        timestamp: new Date().toISOString(),
+                        notificationType: 'venta_en_transito'
+                    });
+                    console.log(`   ✅ Notificación enviada al cliente: user_${notificationData.user_id}`);
+                }
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Manejar notificación de entrega en tránsito (para ADMINS Y CAJEROS)
+            else if (eventName === 'notify/entrega-en-transito-admin') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('🚚 ENTREGA EN TRÁNSITO - NOTIFICANDO A ADMINS Y CAJEROS');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Clientes Únicos: ${notificationData.clientes_unicos}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir a ADMINS, CAJEROS Y MANAGERS
+                socketRepository.emitToRoom('admins', 'entrega:en-transito-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    mensaje: notificationData.mensaje,
+                    type: 'info',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_en_transito_admin'
+                });
+                console.log(`   ✅ Notificación enviada a admins`);
+
+                socketRepository.emitToRoom('cobradores', 'entrega:en-transito-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    mensaje: notificationData.mensaje,
+                    type: 'info',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_en_transito_admin'
+                });
+                console.log(`   ✅ Notificación enviada a cajeros`);
+
+                socketRepository.emitToRoom('managers', 'entrega:en-transito-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    mensaje: notificationData.mensaje,
+                    type: 'info',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_en_transito_admin'
+                });
+                console.log(`   ✅ Notificación enviada a managers`);
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Notificar a admins/cajeros cuando entrega fue finalizada
+            else if (eventName === 'notify/entrega-finalizada-admin') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('✅ ENTREGA FINALIZADA - NOTIFICANDO A ADMINS Y CAJEROS');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   Entrega ID: ${notificationData.entrega_id}`);
+                console.log(`   Número Entrega: ${notificationData.numero_entrega}`);
+                console.log(`   Cantidad de Ventas: ${notificationData.cantidad_ventas}`);
+                console.log(`   Clientes Únicos: ${notificationData.clientes_unicos}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Vehículo: ${notificationData.vehiculo?.placa}`);
+                console.log(`   Fecha de Entrega: ${notificationData.fecha_entrega}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir a ADMINS, CAJEROS Y MANAGERS
+                socketRepository.emitToRoom('admins', 'entrega:finalizada-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    fecha_entrega: notificationData.fecha_entrega,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_finalizada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a admins`);
+
+                socketRepository.emitToRoom('cobradores', 'entrega:finalizada-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    fecha_entrega: notificationData.fecha_entrega,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_finalizada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a cajeros`);
+
+                socketRepository.emitToRoom('managers', 'entrega:finalizada-admin', {
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    estado_entrega: notificationData.estado_entrega,
+                    ventas_numeros: notificationData.ventas_numeros,
+                    cantidad_ventas: notificationData.cantidad_ventas,
+                    clientes_unicos: notificationData.clientes_unicos,
+                    clientes_nombres: notificationData.clientes_nombres,
+                    chofer: notificationData.chofer,
+                    vehiculo: notificationData.vehiculo,
+                    fecha_entrega: notificationData.fecha_entrega,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'entrega_finalizada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a managers`);
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Notificar a cliente cuando su venta fue entregada
+            else if (eventName === 'notify/venta-entregada-cliente') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('✅ VENTA ENTREGADA - NOTIFICANDO A CLIENTE');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   Venta ID: ${notificationData.venta_id}`);
+                console.log(`   Venta: ${notificationData.venta_numero}`);
+                console.log(`   Cliente: ${notificationData.cliente_nombre}`);
+                console.log(`   User ID: ${notificationData.user_id}`);
+                console.log(`   Entrega: ${notificationData.numero_entrega}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir a CLIENTE específico
+                socketRepository.emitToUser(notificationData.user_id, 'venta:entregada', {
+                    venta_id: notificationData.venta_id,
+                    venta_numero: notificationData.venta_numero,
+                    cliente_nombre: notificationData.cliente_nombre,
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_entregada_cliente'
+                });
+                console.log(`   ✅ Notificación enviada a cliente (user_${notificationData.user_id})`);
+
+                notificationSent = true;
+            }
+            // ✅ NUEVO: Notificar a admin/cajero cuando venta fue entregada
+            else if (eventName === 'notify/venta-entregada-admin') {
+                console.log('\n═══════════════════════════════════════════════════════════');
+                console.log('✅ VENTA ENTREGADA - NOTIFICANDO A ADMINS Y CAJEROS');
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log(`   Venta ID: ${notificationData.venta_id}`);
+                console.log(`   Venta: ${notificationData.venta_numero}`);
+                console.log(`   Cliente: ${notificationData.cliente_nombre}`);
+                console.log(`   Chofer: ${notificationData.chofer?.nombre}`);
+                console.log(`   Entrega: ${notificationData.numero_entrega}`);
+                console.log('═══════════════════════════════════════════════════════════\n');
+
+                // ✅ Emitir a ADMINS, CAJEROS Y MANAGERS
+                socketRepository.emitToRoom('admins', 'venta:entregada-admin', {
+                    venta_id: notificationData.venta_id,
+                    venta_numero: notificationData.venta_numero,
+                    cliente_nombre: notificationData.cliente_nombre,
+                    cliente_id: notificationData.cliente_id,
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    chofer: notificationData.chofer,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_entregada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a admins`);
+
+                socketRepository.emitToRoom('cobradores', 'venta:entregada-admin', {
+                    venta_id: notificationData.venta_id,
+                    venta_numero: notificationData.venta_numero,
+                    cliente_nombre: notificationData.cliente_nombre,
+                    cliente_id: notificationData.cliente_id,
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    chofer: notificationData.chofer,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_entregada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a cajeros`);
+
+                socketRepository.emitToRoom('managers', 'venta:entregada-admin', {
+                    venta_id: notificationData.venta_id,
+                    venta_numero: notificationData.venta_numero,
+                    cliente_nombre: notificationData.cliente_nombre,
+                    cliente_id: notificationData.cliente_id,
+                    entrega_id: notificationData.entrega_id,
+                    numero_entrega: notificationData.numero_entrega,
+                    chofer: notificationData.chofer,
+                    mensaje: notificationData.mensaje,
+                    type: 'success',
+                    timestamp: new Date().toISOString(),
+                    notificationType: 'venta_entregada_admin'
+                });
+                console.log(`   ✅ Notificación enviada a managers`);
+
                 notificationSent = true;
             }
             // ✅ FASE 2: Manejar eventos de cambio de estado de entregas

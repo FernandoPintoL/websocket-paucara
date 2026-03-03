@@ -112,15 +112,19 @@ class ProformaNotificationService {
       numero,
       proforma_numero = numero,
       cliente_id,
+      cliente_nombre,
       cliente = {},
       total,
       usuario_aprobador = {},
     } = data;
 
+    // ✅ NUEVO: Extraer nombre del cliente (puede venir como cliente_nombre o de cliente.nombre)
+    const clienteName = cliente_nombre || cliente?.nombre || 'Cliente';
+
     console.log('✅ Notificación: Proforma Aprobada');
     console.log(`   Proforma: ${proforma_numero} (ID: ${id})`);
     console.log(`   Aprobador: ${usuario_aprobador?.name || 'Sistema'}`);
-    console.log(`   Cliente: ${cliente?.nombre} (ID: ${cliente_id})`);
+    console.log(`   Cliente: ${clienteName} (ID: ${cliente_id})`);
 
     // ✅ NORMALIZAR ROLES A MINÚSCULAS para evitar case-sensitivity
     const targetRoles = ['preventista', 'manager', 'admin'];
@@ -132,6 +136,7 @@ class ProformaNotificationService {
         proforma_id: id,
         numero: proforma_numero,
         cliente_id: cliente_id,
+        cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
         cliente: cliente,
         total: total,
         usuario_aprobador: usuario_aprobador,
@@ -145,6 +150,7 @@ class ProformaNotificationService {
       proforma_id: id,
       numero: proforma_numero,
       cliente_id: cliente_id,
+      cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
       cliente: cliente,
       total: total,
       usuario_aprobador: usuario_aprobador,
@@ -160,6 +166,7 @@ class ProformaNotificationService {
         numero: proforma_numero,
         cliente_id: cliente_id,
         user_id: user_id,
+        cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
         cliente: cliente,
         total: total,
         usuario_aprobador: usuario_aprobador,

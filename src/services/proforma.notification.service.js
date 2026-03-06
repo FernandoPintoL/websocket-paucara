@@ -103,8 +103,12 @@ class ProformaNotificationService {
   }
 
   /**
-   * Notificar cuando se aprueba una proforma
-   * Destinatarios: Cliente, Managers, Admins, Preventistas
+   * ✅ CORREGIDO: Notificar cuando se aprueba una proforma
+   * Criterio: SOLO el cliente propietario + Preventista que la creó
+   *
+   * Son los dos usuarios clave:
+   * - Cliente: Quiere saber que su proforma fue aprobada
+   * - Preventista: Quiere saber que la proforma que creó fue aprobada
    */
   notifyProformaApproved(data) {
     const {
@@ -116,74 +120,65 @@ class ProformaNotificationService {
       cliente = {},
       total,
       usuario_aprobador = {},
+      usuario_creador_id = null,  // ID del preventista que creó la proforma
+      user_id = null,  // ID del cliente
     } = data;
 
     // ✅ NUEVO: Extraer nombre del cliente (puede venir como cliente_nombre o de cliente.nombre)
     const clienteName = cliente_nombre || cliente?.nombre || 'Cliente';
 
+    console.log('\n═══════════════════════════════════════════════════════════');
     console.log('✅ Notificación: Proforma Aprobada');
     console.log(`   Proforma: ${proforma_numero} (ID: ${id})`);
     console.log(`   Aprobador: ${usuario_aprobador?.name || 'Sistema'}`);
     console.log(`   Cliente: ${clienteName} (ID: ${cliente_id})`);
+    console.log(`   User ID: ${user_id}`);
+    console.log(`   Usuario Creador ID: ${usuario_creador_id}`);
+    console.log('═══════════════════════════════════════════════════════════\n');
 
-    // ✅ NORMALIZAR ROLES A MINÚSCULAS para evitar case-sensitivity
-    const targetRoles = ['preventista', 'manager', 'admin'];
-
-    // Emitir a roles específicos
-    for (const role of targetRoles) {
-      const room = `${role}s`; // preventistas, managers, admins
-      socketRepository.emitToRoom(room, 'proforma.aprobada', {
-        proforma_id: id,
-        numero: proforma_numero,
-        cliente_id: cliente_id,
-        cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
-        cliente: cliente,
-        total: total,
-        usuario_aprobador: usuario_aprobador,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`   ✅ Enviado a sala: ${room}`);
-    }
-
-    // ✅ También enviar a todos los clientes
-    socketRepository.emitToRoom('clients', 'proforma.aprobada', {
+    const notificationData = {
       proforma_id: id,
       numero: proforma_numero,
       cliente_id: cliente_id,
-      cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
+      cliente_nombre: clienteName,
       cliente: cliente,
       total: total,
       usuario_aprobador: usuario_aprobador,
+      message: '🎉 Tu proforma ha sido aprobada',
+      type: 'success',
       timestamp: new Date().toISOString(),
-    });
-    console.log(`   ✅ Enviado a sala: clients`);
+    };
 
-    // Notificar al cliente directo usando user_id (no cliente_id)
-    const user_id = data.user_id || data.cliente?.user_id;
+    // ✅ 1. Notificar al CLIENTE propietario
     if (user_id) {
       socketRepository.emitToUser(user_id, 'proforma.aprobada', {
-        proforma_id: id,
-        numero: proforma_numero,
-        cliente_id: cliente_id,
+        ...notificationData,
         user_id: user_id,
-        cliente_nombre: clienteName, // ✅ NUEVO: Incluir nombre del cliente
-        cliente: cliente,
-        total: total,
-        usuario_aprobador: usuario_aprobador,
-        message: '🎉 Tu proforma ha sido aprobada',
-        timestamp: new Date().toISOString(),
       });
       console.log(`   ✅ Enviado a cliente directo (user_id): ${user_id}`);
     } else {
       console.warn(`   ⚠️  No se pudo enviar al cliente: user_id no disponible (cliente_id: ${cliente_id})`);
     }
 
+    // ✅ 2. Notificar al PREVENTISTA que creó la proforma
+    if (usuario_creador_id) {
+      socketRepository.emitToUser(usuario_creador_id, 'proforma.aprobada', {
+        ...notificationData,
+        user_id: usuario_creador_id,
+      });
+      console.log(`   ✅ Enviado a preventista creador (user_id): ${usuario_creador_id}`);
+    }
+
     return true;
   }
 
   /**
-   * Notificar cuando se rechaza una proforma
-   * Destinatarios: Cliente, Managers, Admins, Preventistas
+   * ✅ CORREGIDO: Notificar cuando se rechaza una proforma
+   * Criterio: SOLO el cliente propietario + Preventista que la creó
+   *
+   * Son los dos usuarios clave:
+   * - Cliente: DEBE saber que su proforma fue rechazada
+   * - Preventista: DEBE saber que la proforma que creó fue rechazada
    */
   notifyProformaRejected(data) {
     const {
@@ -193,106 +188,107 @@ class ProformaNotificationService {
       cliente_id,
       cliente = {},
       motivo_rechazo,
+      usuario_creador_id = null,  // ID del preventista que creó la proforma
+      user_id = null,  // ID del cliente
     } = data;
 
+    console.log('\n═══════════════════════════════════════════════════════════');
     console.log('❌ Notificación: Proforma Rechazada');
     console.log(`   Proforma: ${proforma_numero} (ID: ${id})`);
     console.log(`   Cliente: ${cliente?.nombre} (ID: ${cliente_id})`);
     console.log(`   Motivo: ${motivo_rechazo || 'No especificado'}`);
+    console.log(`   User ID: ${user_id}`);
+    console.log(`   Usuario Creador ID: ${usuario_creador_id}`);
+    console.log('═══════════════════════════════════════════════════════════\n');
 
-    // ✅ NORMALIZAR ROLES A MINÚSCULAS para evitar case-sensitivity
-    const targetRoles = ['preventista', 'manager', 'admin'];
-
-    // Emitir a roles específicos
-    for (const role of targetRoles) {
-      const room = `${role}s`; // preventistas, managers, admins
-      socketRepository.emitToRoom(room, 'proforma.rechazada', {
-        proforma_id: id,
-        numero: proforma_numero,
-        cliente_id: cliente_id,
-        cliente: cliente,
-        motivo_rechazo: motivo_rechazo,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`   ✅ Enviado a sala: ${room}`);
-    }
-
-    // ✅ También enviar a todos los clientes
-    socketRepository.emitToRoom('clients', 'proforma.rechazada', {
+    const notificationData = {
       proforma_id: id,
       numero: proforma_numero,
       cliente_id: cliente_id,
       cliente: cliente,
       motivo_rechazo: motivo_rechazo,
+      message: '❌ Tu proforma ha sido rechazada',
+      type: 'error',
       timestamp: new Date().toISOString(),
-    });
-    console.log(`   ✅ Enviado a sala: clients`);
+    };
 
-    // Notificar al cliente directo usando user_id (no cliente_id)
-    const user_id = data.user_id || data.cliente?.user_id;
+    // ✅ 1. Notificar al CLIENTE propietario
     if (user_id) {
       socketRepository.emitToUser(user_id, 'proforma.rechazada', {
-        proforma_id: id,
-        numero: proforma_numero,
-        cliente_id: cliente_id,
+        ...notificationData,
         user_id: user_id,
-        cliente: cliente,
-        motivo_rechazo: motivo_rechazo,
-        message: '❌ Tu proforma ha sido rechazada',
-        timestamp: new Date().toISOString(),
       });
       console.log(`   ✅ Enviado a cliente directo (user_id): ${user_id}`);
     } else {
       console.warn(`   ⚠️  No se pudo enviar al cliente: user_id no disponible (cliente_id: ${cliente_id})`);
     }
 
+    // ✅ 2. Notificar al PREVENTISTA que creó la proforma
+    if (usuario_creador_id) {
+      socketRepository.emitToUser(usuario_creador_id, 'proforma.rechazada', {
+        ...notificationData,
+        user_id: usuario_creador_id,
+      });
+      console.log(`   ✅ Enviado a preventista creador (user_id): ${usuario_creador_id}`);
+    }
+
     return true;
   }
 
   /**
-   * Notificar cuando se convierte una proforma a venta
-   * Destinatarios: Logística, Cobradores, Managers, Admins, Cliente
+   * ✅ CORREGIDO: Notificar cuando se convierte una proforma a venta
+   * Criterio: Cliente propietario + Preventista que la creó
+   *
+   * Son los dos usuarios clave:
+   * - Cliente: "Tu proforma ha sido convertida a venta"
+   * - Preventista: "La proforma que creaste fue convertida a venta"
    */
   notifyProformaConverted(data) {
+    console.log('\n═══════════════════════════════════════════════════════════');
     console.log('🎉 Notificación: Proforma Convertida a Venta');
     console.log(`   Proforma: ${data.proforma_numero}`);
     console.log(`   Venta: ${data.venta_numero}`);
     console.log(`   Cliente: ${data.cliente_nombre} (ID: ${data.cliente_id})`);
+    console.log(`   User ID: ${data.user_id}`);
+    console.log(`   Usuario Creador ID: ${data.usuario_creador_id}`);
     console.log(`   Total: ${data.total}`);
+    console.log('═══════════════════════════════════════════════════════════\n');
 
-    // ✅ NORMALIZAR ROLES A MINÚSCULAS para evitar case-sensitivity
-    const targetRoles = ['logistica', 'cobrador', 'manager', 'admin'];
+    const notificationData = {
+      proforma_id: data.proforma_id,
+      proforma_numero: data.proforma_numero,
+      venta_id: data.venta_id,
+      venta_numero: data.venta_numero,
+      total: data.total,
+      cliente_id: data.cliente_id,
+      cliente_nombre: data.cliente_nombre,
+      type: 'success',
+      notificationType: 'proforma_converted',
+      timestamp: new Date().toISOString(),
+    };
 
-    // Emitir a cada rol interno
-    for (const role of targetRoles) {
-      const room = `${role}s`; // logisticas, cobradores, managers, admins
-      socketRepository.emitToRoom(room, 'proforma.convertida', {
-        ...data,
-        notificationId: data.proforma_id,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`   ✅ Enviado a sala: ${room}`);
-    }
-
-    // ✅ Notificar al cliente directamente usando user_id (no cliente_id)
+    // 1. ✅ Notificar al CLIENTE propietario
     const user_id = data.user_id;
     if (user_id) {
       socketRepository.emitToUser(user_id, 'proforma.convertida', {
-        proforma_id: data.proforma_id,
-        proforma_numero: data.proforma_numero,
-        venta_id: data.venta_id,
-        venta_numero: data.venta_numero,
-        total: data.total,
-        cliente_id: data.cliente_id,
+        ...notificationData,
         user_id: user_id,
-        cliente_nombre: data.cliente_nombre,
-        message: '🎉 Tu proforma ha sido convertida a venta',
-        type: 'success',
-        timestamp: new Date().toISOString(),
+        message: '🎉 Tu proforma ha sido convertida a venta. Tu pedido está siendo procesado.',
       });
       console.log(`   ✅ Enviado a cliente directo (user_id): ${user_id}`);
     } else {
       console.warn(`   ⚠️  No se pudo enviar al cliente: user_id no disponible (cliente_id: ${data.cliente_id})`);
+    }
+
+    // 2. ✅ Notificar al PREVENTISTA que creó la proforma
+    const usuario_creador_id = data.usuario_creador_id;
+    if (usuario_creador_id) {
+      socketRepository.emitToUser(usuario_creador_id, 'proforma.convertida', {
+        ...notificationData,
+        user_id: usuario_creador_id,
+        message: '✅ La proforma que creaste ha sido convertida a venta',
+      });
+      console.log(`   ✅ Enviado a preventista creador (user_id): ${usuario_creador_id}`);
     }
 
     return true;
@@ -384,6 +380,80 @@ class ProformaNotificationService {
         timestamp: new Date().toISOString(),
       });
       console.log(`   ✅ Enviado a sala: ${room}`);
+    }
+
+    return true;
+  }
+
+  /**
+   * ✅ NUEVO: Notificar cuando se actualiza una proforma
+   * Destinatarios: Preventistas, Managers, Admins, Cliente
+   */
+  notifyProformaUpdated(data) {
+    const {
+      id,
+      numero,
+      cliente_id,
+      cliente = {},
+      total,
+      items = [],
+      fecha_entrega_solicitada,
+      hora_entrega_solicitada,
+      hora_entrega_solicitada_fin,
+      subtotal,
+      impuesto,
+      estado = 'PENDIENTE',
+    } = data;
+
+    console.log('\n═══════════════════════════════════════════════════════════');
+    console.log('📝 Notificación: Proforma Actualizada');
+    console.log(`   Proforma: ${numero} (ID: ${id})`);
+    console.log(`   Cliente: ${cliente?.nombre} (ID: ${cliente_id})`);
+    console.log(`   Total: ${total}`);
+    console.log(`   Items: ${items?.length || 0}`);
+    console.log(`   Fecha Entrega: ${fecha_entrega_solicitada}`);
+    console.log(`   Hora: ${hora_entrega_solicitada} - ${hora_entrega_solicitada_fin}`);
+    console.log('═══════════════════════════════════════════════════════════\n');
+
+    // Preparar datos para emitir
+    const notificationData = {
+      proforma_id: id,
+      numero: numero,
+      cliente_id: cliente_id,
+      cliente: cliente,
+      total: total || 0,
+      subtotal: subtotal || 0,
+      impuesto: impuesto || 0,
+      items: items || [],
+      items_count: items?.length || 0,
+      fecha_entrega_solicitada: fecha_entrega_solicitada,
+      hora_entrega_solicitada: hora_entrega_solicitada,
+      hora_entrega_solicitada_fin: hora_entrega_solicitada_fin,
+      estado: estado,
+      timestamp: new Date().toISOString(),
+    };
+
+    // ✅ NORMALIZAR ROLES A MINÚSCULAS para evitar case-sensitivity
+    const targetRoles = ['preventista', 'manager', 'admin'];
+
+    // Emitir a roles específicos
+    for (const role of targetRoles) {
+      const room = `${role}s`; // preventistas, managers, admins
+      socketRepository.emitToRoom(room, 'proforma.actualizada', notificationData);
+      console.log(`   ✅ Enviado a sala: ${room}`);
+    }
+
+    // ✅ Notificar al cliente directo usando user_id
+    const user_id = data.user_id || data.cliente?.user_id;
+    if (user_id) {
+      socketRepository.emitToUser(user_id, 'proforma.actualizada', {
+        ...notificationData,
+        user_id: user_id,
+        message: '🔄 Tu proforma ha sido actualizada',
+      });
+      console.log(`   ✅ Enviado a cliente directo (user_id): ${user_id}`);
+    } else {
+      console.warn(`   ⚠️  No se pudo enviar al cliente: user_id no disponible (cliente_id: ${cliente_id})`);
     }
 
     return true;
